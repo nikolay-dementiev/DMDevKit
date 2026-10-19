@@ -5,13 +5,25 @@ import Foundation
 /// function in the caller's environment cannot stand in for `shasum` or another tool the checksum check relies on.
 final class FunctionClearingEndToEndTests: XCTestCase {
     /// `tool` is a program the command surely runs: the function of that name must never run.
-    private static let commands: [(name: String, arguments: [String], tool: String)] = [
-        ("lint", ["lint"], "shasum"),
-        ("check-lint-contract", ["check-lint-contract"], "shasum"),
-        ("check-lint-tool", ["check-lint-tool"], "shasum"),
-        ("swiftlint-fetch", ["swiftlint-fetch", RealSwiftLint.version], "shasum"),
-        ("check-api", ["check-api", "--self-test"], "git"),
-        ("check-release", ["check-release", "--notes", "1.1.0"], "awk")
+    private struct Command {
+        let name: String
+        let arguments: [String]
+        let tool: String
+
+        init(_ name: String, _ arguments: [String], _ tool: String) {
+            self.name = name
+            self.arguments = arguments
+            self.tool = tool
+        }
+    }
+
+    private static let commands: [Command] = [
+        Command("lint", ["lint"], "shasum"),
+        Command("check-lint-contract", ["check-lint-contract"], "shasum"),
+        Command("check-lint-tool", ["check-lint-tool"], "shasum"),
+        Command("swiftlint-fetch", ["swiftlint-fetch", RealSwiftLint.version], "shasum"),
+        Command("check-api", ["check-api", "--self-test"], "git"),
+        Command("check-release", ["check-release", "--notes", "1.1.0"], "awk")
     ]
     private static let clearingLine = "while IFS= read -r FUNCTION; do unset -f \"$FUNCTION\"; done < <(compgen -A function)"
 

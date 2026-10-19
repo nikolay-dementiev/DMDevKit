@@ -171,8 +171,13 @@ final class CountTestsEndToEndTests: XCTestCase {
 
     func test_aSummaryWithoutTheCounts_isStatusTwo() throws {
         let sut = try makeSUT(files: ["Tests/A.swift": Self.threeTests], summary: Summary(total: 3, passed: 3))
-        let summaries = ["{}", "{\"error\":\"no tests\"}", "[1, 2]",
-            "{\"totalTestCount\":\"3\",\"passedTests\":3,\"failedTests\":0,\"skippedTests\":0}", "{\"totalTestCount\":3,\"passedTests\":true,\"failedTests\":0,\"skippedTests\":0}"]
+        let summaries = [
+            "{}",
+            "{\"error\":\"no tests\"}",
+            "[1, 2]",
+            "{\"totalTestCount\":\"3\",\"passedTests\":3,\"failedTests\":0,\"skippedTests\":0}",
+            "{\"totalTestCount\":3,\"passedTests\":true,\"failedTests\":0,\"skippedTests\":0}"
+        ]
         for summary in summaries {
             try summary.write(to: sut.fixture.directory.appendingPathComponent("summary.json"), atomically: true, encoding: .utf8)
 
@@ -281,7 +286,10 @@ final class CountTestsEndToEndTests: XCTestCase {
         var passed: Int
         var failed = 0
         var skipped = 0
-        var json: String { "{\"totalTestCount\":\(total),\"passedTests\":\(passed),\"failedTests\":\(failed),\"skippedTests\":\(skipped)}" }
+        var json: String {
+            "{\"totalTestCount\":\(total),\"passedTests\":\(passed)," +
+                "\"failedTests\":\(failed),\"skippedTests\":\(skipped)}"
+        }
     }
 
     struct SUT {

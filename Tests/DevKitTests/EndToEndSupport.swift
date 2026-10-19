@@ -64,8 +64,13 @@ final class EndToEndFixture {
         return environment.merging(extra) { _, added in added }
     }
 
-    func capture(_ executable: String, _ arguments: [String], in workingDirectory: URL? = nil,
-        environment: [String: String]? = nil, timeout: TimeInterval = 180) throws -> Captured {
+    func capture(
+        _ executable: String,
+        _ arguments: [String],
+        in workingDirectory: URL? = nil,
+        environment: [String: String]? = nil,
+        timeout: TimeInterval = 180
+    ) throws -> Captured {
         let outputURL = directory.appendingPathComponent("out-\(UUID().uuidString)")
         let errorURL = directory.appendingPathComponent("err-\(UUID().uuidString)")
         for url in [outputURL, errorURL] { FileManager.default.createFile(atPath: url.path, contents: nil) }
@@ -117,7 +122,10 @@ enum RealSwiftLint {
 
     /// DMDevKit's own copy, put there by the helper (`swiftlint-fetch`). Absent: the test fails and names the command.
     static func archive(file: StaticString = #filePath) throws -> URL {
-        let root = URL(fileURLWithPath: "\(file)").deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let root = URL(fileURLWithPath: "\(file)")
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
         let archive = root.appendingPathComponent(".build/tools/swiftlint-\(version)/portable_swiftlint.zip")
         guard FileManager.default.fileExists(atPath: archive.path) else {
             throw MissingArchive(path: archive.path)

@@ -161,11 +161,10 @@ final class FoundationProcessLauncherTests: XCTestCase {
         func standardError() throws -> String { try String(contentsOf: errorURL, encoding: .utf8) }
     }
 
-    private var directory: URL!
+    private let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("devkit-launcher-\(UUID().uuidString)", isDirectory: true)
 
     override func setUpWithError() throws {
-        directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-launcher-\(UUID().uuidString)",
-            isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     }
 

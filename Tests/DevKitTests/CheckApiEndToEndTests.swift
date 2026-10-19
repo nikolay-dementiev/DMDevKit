@@ -111,15 +111,23 @@ final class CheckApiEndToEndTests: XCTestCase {
     // MARK: - Library evolution
 
     func test_libraryEvolution_isOnlyEnabledByTheValueYes() throws {
-        let cases: [(setting: String, enabled: Bool, why: String)] = [
-            ("", false, "a missing key means no"),
-            ("LIBRARY_EVOLUTION=\"no\"\n", false, "no"),
-            ("LIBRARY_EVOLUTION=\"Yes\"\n", false, "any spelling but yes means no"),
-            ("LIBRARY_EVOLUTION=\"true\"\n", false, "any value but yes means no"),
-            ("LIBRARY_EVOLUTION=\"yes\"\n", true, "yes")
+        struct Case {
+            let setting: String
+            let enabled: Bool
+            let why: String
+        }
+        let cases = [
+            Case(setting: "", enabled: false, why: "a missing key means no"),
+            Case(setting: "LIBRARY_EVOLUTION=\"no\"\n", enabled: false, why: "no"),
+            Case(setting: "LIBRARY_EVOLUTION=\"Yes\"\n", enabled: false, why: "any spelling but yes means no"),
+            Case(setting: "LIBRARY_EVOLUTION=\"true\"\n", enabled: false, why: "any value but yes means no"),
+            Case(setting: "LIBRARY_EVOLUTION=\"yes\"\n", enabled: true, why: "yes")
         ]
         for item in cases {
-            let sut = try makeSUT(conf: "DEVKIT_CONF_VERSION=1\nMODULE=\"Fix\"\nSOURCE_DIR=\"Sources/Fix\"\nSWIFT_FLAGS=(-swift-version 6)\n" + item.setting)
+            let sut = try makeSUT(
+                conf: "DEVKIT_CONF_VERSION=1\nMODULE=\"Fix\"\nSOURCE_DIR=\"Sources/Fix\"\nSWIFT_FLAGS=(-swift-version 6)\n" +
+                    item.setting
+            )
             let record = sut.fixture.directory.appendingPathComponent("swiftc-arguments")
             // Records every call of xcrun and then runs the real one, so the compile still happens.
             try sut.fixture.writeShim(named: "xcrun", body: "echo \"$*\" >> '\(record.path)'\nexec /usr/bin/xcrun \"$@\"\n")
@@ -320,8 +328,13 @@ final class CheckApiEndToEndTests: XCTestCase {
             try text.write(to: url, atomically: true, encoding: .utf8)
         }
 
-        func replaceInSource(_ old: String, with new: String, in path: String = "Sources/Fix/Fix.swift",
-            file: StaticString = #filePath, line: UInt = #line) throws {
+        func replaceInSource(
+            _ old: String,
+            with new: String,
+            in path: String = "Sources/Fix/Fix.swift",
+            file: StaticString = #filePath,
+            line: UInt = #line
+        ) throws {
             let url = repository.appendingPathComponent(path)
             let text = try String(contentsOf: url, encoding: .utf8)
             guard text.contains(old) else {

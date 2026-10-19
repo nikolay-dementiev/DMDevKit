@@ -233,8 +233,11 @@ final class LintContractEndToEndTests: XCTestCase {
         "Sources/Lib/Keep.swift": "let kept = 1\n"
     ]
 
-    static func conf(sourceDirectory: String = "Sources/Lib", rules: String = "domain_imports no_process_termination",
-        extra: String = "") -> String {
+    static func conf(
+        sourceDirectory: String = "Sources/Lib",
+        rules: String = "domain_imports no_process_termination",
+        extra: String = ""
+    ) -> String {
         "DEVKIT_CONF_VERSION=1\nSOURCE_DIR=\"\(sourceDirectory)\"\nRULES=\"\(rules)\"\n" + extra
     }
 
@@ -249,8 +252,11 @@ final class LintContractEndToEndTests: XCTestCase {
         }
     }
 
-    private func makeSUT(files: [String: String] = LintContractEndToEndTests.files,
-        config: String = LintContractEndToEndTests.config, conf: String? = LintContractEndToEndTests.conf()) throws -> SUT {
+    private func makeSUT(
+        files: [String: String] = LintContractEndToEndTests.files,
+        config: String = LintContractEndToEndTests.config,
+        conf: String? = LintContractEndToEndTests.conf()
+    ) throws -> SUT {
         let fixture = try EndToEndFixture()
         let directory = fixture.directory
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }

@@ -55,8 +55,13 @@ final class ExportCoverageEndToEndTests: XCTestCase {
     func test_withoutDevkit_theScriptRefusesToGuessTheRepository() throws {
         let sut = try makeSUT()
 
-        let result = try sut.fixture.capture("/usr/bin/env", ["python3", "-B",
-            sut.resources.appendingPathComponent("Scripts/export-coverage.py").path, "Fake.xcresult", "Lib", sut.output.path], in: sut.repository)
+        let script = sut.resources.appendingPathComponent("Scripts/export-coverage.py").path
+
+        let result = try sut.fixture.capture(
+            "/usr/bin/env",
+            ["python3", "-B", script, "Fake.xcresult", "Lib", sut.output.path],
+            in: sut.repository
+        )
 
         XCTAssertEqual(result.status, 2, "no DEVKIT_REPO_ROOT, no run")
         XCTAssertTrue(result.standardError.contains("run it as 'devkit export-coverage'"),
@@ -70,8 +75,14 @@ final class ExportCoverageEndToEndTests: XCTestCase {
         var environment = sut.fixture.shimmedEnvironment()
         environment["DEVKIT_REPO_ROOT"] = EndToEndFixture.realPath(sut.repository)
 
-        let result = try sut.fixture.capture("/usr/bin/env", ["python3", "-B",
-            moved.appendingPathComponent("Scripts/export-coverage.py").path, "Fake.xcresult", "Lib", sut.output.path], in: sut.repository, environment: environment)
+        let script = moved.appendingPathComponent("Scripts/export-coverage.py").path
+
+        let result = try sut.fixture.capture(
+            "/usr/bin/env",
+            ["python3", "-B", script, "Fake.xcresult", "Lib", sut.output.path],
+            in: sut.repository,
+            environment: environment
+        )
 
         XCTAssertEqual(result.status, 0,
             "a script that looked at its own location would not find the repository: \(result.standardError)")
@@ -192,14 +203,22 @@ final class ExportCoverageCheckTests: XCTestCase {
         let fixture = try EndToEndFixture()
         let directory = fixture.directory
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
-        let root = URL(fileURLWithPath: "\(#filePath)").deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let root = URL(fileURLWithPath: "\(#filePath)")
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
         let exporter = EndToEndFixture.resourceFolder(for: Self.self).appendingPathComponent("Scripts/export-coverage.py")
         return SUT(fixture: fixture, exporter: exporter,
             check: root.appendingPathComponent("Tests/Python/test-export-coverage.py"))
     }
 
-    private func assertCheckFails(_ old: String, _ new: String, failing: String, file: StaticString = #filePath,
-        line: UInt = #line) throws {
+    private func assertCheckFails(
+        _ old: String,
+        _ new: String,
+        failing: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
         let sut = try makeSUT()
         let original = try String(contentsOf: sut.exporter, encoding: .utf8)
         guard original.components(separatedBy: old).count - 1 == 1 else {

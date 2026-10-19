@@ -152,8 +152,11 @@ final class SwiftLintHelperEndToEndTests: XCTestCase {
         }
         var unzipLog: URL { fixture.directory.appendingPathComponent("unzip.log") }
 
-        func run(_ arguments: [String], adding: [String: String] = [:],
-            shimmedCurlDelivering archive: URL? = nil) throws -> Captured {
+        func run(
+            _ arguments: [String],
+            adding: [String: String] = [:],
+            shimmedCurlDelivering archive: URL? = nil
+        ) throws -> Captured {
             try installShims(curlDelivering: archive)
             return try fixture.capture(devkit.path, arguments, in: repository,
                 environment: fixture.shimmedEnvironment(adding: adding))
@@ -162,7 +165,10 @@ final class SwiftLintHelperEndToEndTests: XCTestCase {
         func installShims(curlDelivering archive: URL? = nil) throws {
             try fixture.writeShim(named: "curl", body: """
             echo "$*" >> '\(curlLog.path)'
-            \(archive.map { "while [ $# -gt 0 ]; do case \"$1\" in --output) out=\"$2\" ;; esac; shift; done; cp '\($0.path)' \"$out\"" } ?? "exit 22")
+            \(archive.map { copy in
+                "while [ $# -gt 0 ]; do case \"$1\" in --output) out=\"$2\" ;; esac; shift; done; " +
+                    "cp '\(copy.path)' \"$out\""
+            } ?? "exit 22")
             """)
             try fixture.writeShim(named: "unzip", body: "echo \"$*\" >> '\(unzipLog.path)'\nexec /usr/bin/unzip \"$@\"\n")
         }
