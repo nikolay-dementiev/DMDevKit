@@ -76,6 +76,18 @@ final class LintEndToEndTests: XCTestCase {
         XCTAssertEqual(result.standardOutput, "", "no summary on failure")
     }
 
+    func test_lint_cannotBeWeakenedByAnExportedShasum() throws {
+        let sut = try makeSUT(seed: false)
+        let folder = sut.repository.appendingPathComponent(".build/tools/swiftlint-\(RealSwiftLint.version)", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try Data("not the archive".utf8).write(to: folder.appendingPathComponent("portable_swiftlint.zip"))
+
+        let result = try sut.run(["lint"], adding: ["BASH_FUNC_shasum%%": "() { echo c1e429b0599cf1b516f369a2d9ec04eaf0e436f3c12b637df8851fa52ff694d0; }"])
+
+        XCTAssertEqual(result.status, 2, "a function named shasum from the caller's environment must not make a tampered archive pass: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("It was removed"), "the checksum check ran and refused the archive: \(result.standardError)")
+    }
+
     func test_analyzeWithoutALog_isStatusOneNamingTheMissingArgument() throws {
         let sut = try makeSUT()
 
@@ -147,9 +159,9 @@ final class LintEndToEndTests: XCTestCase {
         let resources: URL
         var curlLog: URL { fixture.directory.appendingPathComponent("curl.log") }
 
-        func run(_ arguments: [String]) throws -> Captured {
+        func run(_ arguments: [String], adding: [String: String] = [:]) throws -> Captured {
             try fixture.writeShim(named: "curl", body: "echo \"$*\" >> '\(curlLog.path)'\nexit 22\n")
-            return try fixture.capture(devkit.path, arguments, in: repository, environment: fixture.shimmedEnvironment())
+            return try fixture.capture(devkit.path, arguments, in: repository, environment: fixture.shimmedEnvironment(adding: adding))
         }
     }
 
