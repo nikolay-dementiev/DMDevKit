@@ -86,3 +86,27 @@ final class EndToEndFixture {
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 }
+
+/// The real SwiftLint archive that the tests unpack through the helper, so that its checksum is checked in every test.
+enum RealSwiftLint {
+    static let version = "0.65.1"
+    static let fetchCommand = "swift run devkit swiftlint-fetch \(version)"
+
+    /// DMDevKit's own copy, put there by the helper (`swiftlint-fetch`). Absent: the test fails and names the command.
+    static func archive(file: StaticString = #filePath) throws -> URL {
+        let root = URL(fileURLWithPath: "\(file)").deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let archive = root.appendingPathComponent(".build/tools/swiftlint-\(version)/portable_swiftlint.zip")
+        guard FileManager.default.fileExists(atPath: archive.path) else {
+            XCTFail("SwiftLint \(version) is not in \(archive.path); fetch it with: \(fetchCommand)")
+            throw CocoaError(.fileNoSuchFile)
+        }
+        return archive
+    }
+
+    /// Copies the archive into `<repository>/.build/tools/swiftlint-<version>/`; the helper checks it and unpacks the tool.
+    static func seed(into repository: URL) throws {
+        let folder = repository.appendingPathComponent(".build/tools/swiftlint-\(version)", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try FileManager.default.copyItem(at: try archive(), to: folder.appendingPathComponent("portable_swiftlint.zip"))
+    }
+}
