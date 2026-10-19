@@ -33,7 +33,7 @@ final class CheckReleaseSelfTestMutantsEndToEndTests: XCTestCase {
         try assertSelfTestFails(
             "'^ {0,3}(#{1,6}|\\*\\*|__)[^[:alnum:]]*breaking([^[:alnum:]]|$)'",
             "'^### Breaking changes$'",
-            "a breaking heading is read in any letter case", failingCase: "a breaking subsection in lower case under the same major fails"
+            "a breaking heading is read at any level and with anything after the word", failingCase: "a breaking subsection with blanks after it still fails"
         )
     }
 
