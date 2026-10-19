@@ -19,10 +19,12 @@
 _DEVKIT_CONF_SCALARS="MODULE SOURCE_DIR RULES FIXTURE_DIR LIBRARY_EVOLUTION PODSPEC FROZEN_POD_VERSION"
 _DEVKIT_CONF_ARRAYS="SWIFT_FLAGS DEPENDENCIES PREPARE"
 # Names of the function below and the shell's own, which a snapshot of the variables can differ in.
-_DEVKIT_CONF_INTERNAL=" conf name before after kind _ OLDPWD PIPESTATUS LINENO RANDOM SECONDS BASH_COMMAND BASH_LINENO BASH_SOURCE FUNCNAME "
+_DEVKIT_CONF_INTERNAL=" conf name before after kind root0 res0 conf0 work0 _ OLDPWD PIPESTATUS LINENO RANDOM SECONDS BASH_COMMAND BASH_LINENO BASH_SOURCE FUNCNAME "
 
 devkit_conf_load() {
-    local conf="${DEVKIT_CONF:-}" name="" before="" after="" kind=""
+    # The loops below split on blanks whatever the caller set IFS to.
+    local IFS=$' \t\n'
+    local conf="${DEVKIT_CONF:-}" name="" before="" after="" kind="" root0="${DEVKIT_REPO_ROOT-}" res0="${DEVKIT_RESOURCES-}" conf0="${DEVKIT_CONF-}" work0="${DEVKIT_WORK-}"
     if [ -z "$conf" ]; then
         echo "devkit-conf: DEVKIT_CONF is not set; run the script through devkit" >&2
         return 2
@@ -40,6 +42,13 @@ devkit_conf_load() {
         echo "devkit-conf: $conf failed to load" >&2
         return 2
     fi
+    # The paths of the model are devkit's to give: a file that changes one of them would send the next script elsewhere.
+    for name in DEVKIT_REPO_ROOT:"$root0" DEVKIT_RESOURCES:"$res0" DEVKIT_CONF:"$conf0" DEVKIT_WORK:"$work0"; do
+        if [ "$(eval "printf '%s' \"\${${name%%:*}-}\"")" != "${name#*:}" ]; then
+            echo "devkit-conf: $conf must not set ${name%%:*}; devkit gives the scripts that path" >&2
+            return 2
+        fi
+    done
     if [ "${DEVKIT_CONF_VERSION-}" != "1" ]; then
         echo "devkit-conf: $conf must set DEVKIT_CONF_VERSION=1 (found '${DEVKIT_CONF_VERSION-}')" >&2
         return 2
@@ -82,10 +91,13 @@ devkit_conf_load() {
 _devkit_conf_resolve_podspec() {
     if [ -z "${PODSPEC-}" ]; then
         [ -n "${MODULE-}" ] || return 0
-        PODSPEC="${DEVKIT_REPO_ROOT:-}/$MODULE.podspec"
     fi
-    case "$PODSPEC" in
-        /*) ;;
-        *) PODSPEC="${DEVKIT_REPO_ROOT:-}/$PODSPEC" ;;
+    case "${PODSPEC-}" in
+        /*) return 0 ;;
     esac
+    if [ -z "${DEVKIT_REPO_ROOT-}" ]; then
+        echo "devkit-conf: DEVKIT_REPO_ROOT is not set, so PODSPEC cannot be resolved" >&2
+        return 2
+    fi
+    PODSPEC="$DEVKIT_REPO_ROOT/${PODSPEC:-$MODULE.podspec}"
 }
