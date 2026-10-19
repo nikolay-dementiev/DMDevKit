@@ -14,7 +14,7 @@ final class CommandLineRunnerUsageTests: XCTestCase {
         XCTAssertEqual(doubles.output.standardError, "", "--help writes nothing on standard error")
     }
 
-    func test_noArguments_printsUsageOnStandardErrorAndExitsTwo() {
+    func test_noArguments_printsUsageOnStandardErrorAndExitsSixtyFour() {
         let (sut, doubles) = makeSUT()
 
         let status = sut.run(arguments: [])
@@ -33,7 +33,7 @@ final class CommandLineRunnerUsageTests: XCTestCase {
         XCTAssertEqual(doubles.output.standardOutput, "0.1.2-test\n", "exactly one line, the version")
     }
 
-    func test_unknownCommand_namesItListsTheCommandsAndExitsTwo() {
+    func test_unknownCommand_namesItListsTheCommandsAndExitsSixtyFour() {
         let (sut, doubles) = makeSUT()
 
         let status = sut.run(arguments: ["nope"])
