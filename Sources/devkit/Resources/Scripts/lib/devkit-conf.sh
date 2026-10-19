@@ -14,7 +14,13 @@
 # A name the file does not set is unset, an array it does not set is empty, and a value in the
 # environment is never a setting. PODSPEC defaults to $DEVKIT_REPO_ROOT/$MODULE.podspec; a relative
 # PODSPEC is relative to $DEVKIT_REPO_ROOT. Status 2 and a line on standard error when the file is
-# missing, has no DEVKIT_CONF_VERSION=1, sets another name, or sets a name with the wrong kind.
+# missing, has no DEVKIT_CONF_VERSION=1, sets another name, sets a name with the wrong kind, or
+# changes one of the four DEVKIT_* paths that devkit gave.
+#
+# Limits: a name that already exists in the caller's shell (PATH, a variable of the calling script) is
+# not found by the snapshot of the names, so a file can change it without an error. A command of the
+# file that fails does not stop the load (errexit is off while it is sourced); the checks above still
+# run on what it set.
 
 _DEVKIT_CONF_SCALARS="MODULE SOURCE_DIR RULES FIXTURE_DIR LIBRARY_EVOLUTION PODSPEC FROZEN_POD_VERSION"
 _DEVKIT_CONF_ARRAYS="SWIFT_FLAGS DEPENDENCIES PREPARE"
