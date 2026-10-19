@@ -20,6 +20,10 @@
 
 set -euo pipefail
 
+# Functions imported from the caller's environment could replace a tool this script trusts (shasum, cut, unzip, mv):
+# only the functions it defines itself count.
+while IFS= read -r FUNCTION; do unset -f "$FUNCTION"; done < <(compgen -A function)
+
 for NEEDED in zip unzip shasum; do
     if ! command -v "$NEEDED" > /dev/null; then
         echo "check-lint-tool: $NEEDED is not installed" >&2

@@ -10,6 +10,10 @@
 
 set -euo pipefail
 
+# Functions imported from the caller's environment could replace a tool this script trusts (shasum, cut, unzip, mv):
+# only the functions it defines itself count.
+while IFS= read -r FUNCTION; do unset -f "$FUNCTION"; done < <(compgen -A function)
+
 if [ -z "${DEVKIT_REPO_ROOT:-}" ] || [ -z "${DEVKIT_RESOURCES:-}" ]; then
     echo "swiftlint-fetch: run it as 'devkit swiftlint-fetch <version>'" >&2
     exit 2

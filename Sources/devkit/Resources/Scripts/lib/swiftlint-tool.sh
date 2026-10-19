@@ -73,25 +73,34 @@ swiftlint_fetch() {
             return "$status"
         fi
     fi
-    actual="$(shasum -a 256 "$archive" | cut -d ' ' -f 1)" || return $?
-    if [ "$actual" != "$expected" ]; then
-        # A wrong archive must not block every later run: the next one fetches it again.
-        rm -f "$archive" || return $?
-        echo "$caller: the SwiftLint $version archive had checksum $actual, expected $expected. It was removed." >&2
-        return 2
-    fi
     # Unpacked into a folder of its own and moved onto its place with one rename. A run that is
     # executing the tool keeps its file, and a run that starts now gets a whole one, even when
     # another run unpacks at the same moment. A run that is killed in the middle of the transfer or
     # of the unpack leaves its part file or its folder in .build/tools, which a clean of .build
     # removes. They are never read: only the archive and the tool under their final names are.
+    # The archive is copied into that private folder and checked there, so the bytes that pass the
+    # checksum are the bytes that are unpacked, whatever else writes to .build/tools in between.
     stage="$(mktemp -d "$tools/unpack.XXXXXX")" || return $?
     status=0
-    unzip -q -o "$archive" swiftlint -d "$stage" || status=$?
+    cp "$archive" "$stage/archive.zip" || status=$?
+    actual=""
+    if [ "$status" -eq 0 ]; then
+        actual="$(shasum -a 256 "$stage/archive.zip" | cut -d ' ' -f 1)" || status=$?
+    fi
+    if [ "$status" -eq 0 ] && [ "$actual" != "$expected" ]; then
+        # A wrong archive must not block every later run: the next one fetches it again.
+        rm -f "$archive" "$stage/archive.zip"
+        rmdir "$stage" || echo "$caller: could not remove $stage" >&2
+        echo "$caller: the SwiftLint $version archive had checksum $actual, expected $expected. It was removed." >&2
+        return 2
+    fi
+    if [ "$status" -eq 0 ]; then
+        unzip -q -o "$stage/archive.zip" swiftlint -d "$stage" || status=$?
+    fi
     if [ "$status" -eq 0 ]; then
         mv -f "$stage/swiftlint" "$tools/swiftlint" || status=$?
     fi
-    rm -f "$stage/swiftlint"
+    rm -f "$stage/swiftlint" "$stage/archive.zip"
     rmdir "$stage" || echo "$caller: could not remove $stage" >&2
     [ "$status" -eq 0 ] || return "$status"
     printf '%s\n' "$tools/swiftlint"
