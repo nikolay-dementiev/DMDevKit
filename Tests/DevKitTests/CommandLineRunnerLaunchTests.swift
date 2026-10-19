@@ -76,7 +76,7 @@ final class CommandLineRunnerLaunchTests: XCTestCase {
 
         let status = sut.run(arguments: ["alpha"])
 
-        XCTAssertEqual(status, 2, "a broken installation is an error of devkit")
+        XCTAssertEqual(status, 70, "a broken installation is EX_SOFTWARE, not a status of a script")
         XCTAssertTrue(
             doubles.output.standardError.contains("the resource folder /resources is missing"),
             "the message names the folder"
@@ -84,25 +84,36 @@ final class CommandLineRunnerLaunchTests: XCTestCase {
         XCTAssertTrue(doubles.launcher.plans.isEmpty, "nothing was started")
     }
 
-    func test_outsideARepository_exitsTwoAndNothingStarts() {
+    func test_outsideARepository_exitsSixtyFourAndNothingStarts() {
         let (sut, doubles) = makeSUT()
         doubles.locator.result = .failure(DevKitError.notInRepository(directory: "/repo/sub"))
 
         let status = sut.run(arguments: ["alpha"])
 
-        XCTAssertEqual(status, 2, "no repository, no command")
+        XCTAssertEqual(status, 64, "a working directory outside a repository is a mistake of the caller (EX_USAGE)")
         XCTAssertTrue(doubles.output.standardError.contains("/repo/sub is not inside a git repository"), "the message names the directory")
         XCTAssertTrue(doubles.launcher.plans.isEmpty, "nothing was started")
     }
 
-    func test_launcherFailure_isReportedAndExitsTwo() {
+    func test_launcherFailure_isReportedAndExitsSeventy() {
         let (sut, doubles) = makeSUT()
         doubles.launcher.error = DevKitError.cannotStart(executable: "/bin/bash", reason: "no such file")
 
         let status = sut.run(arguments: ["alpha"])
 
-        XCTAssertEqual(status, 2, "a script that could not start is an error of devkit")
+        XCTAssertEqual(status, 70, "a script that could not start is EX_SOFTWARE")
         XCTAssertTrue(doubles.output.standardError.contains("cannot start /bin/bash: no such file"), "the message names the executable and the reason")
+    }
+
+    func test_anyOtherFailureOfDevkit_exitsSeventy() {
+        struct Foreign: Error {}
+        let (sut, doubles) = makeSUT()
+        doubles.locator.result = .failure(Foreign())
+
+        let status = sut.run(arguments: ["alpha"])
+
+        XCTAssertEqual(status, 70, "an error devkit does not know is EX_SOFTWARE")
+        XCTAssertTrue(doubles.launcher.plans.isEmpty, "nothing was started")
     }
 
     // MARK: - Helpers

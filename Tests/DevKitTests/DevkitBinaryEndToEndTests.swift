@@ -28,7 +28,7 @@ final class DevkitBinaryEndToEndTests: XCTestCase {
         for name in [script.path, "Scripts/prepare-simulator.sh", "../prepare-simulator"] {
             let result = try sut.fixture.capture(sut.devkit.path, [name], in: sut.repository)
 
-            XCTAssertEqual(result.status, 2, "'\(name)' is not a command")
+            XCTAssertEqual(result.status, 64, "'\(name)' is not a command")
             XCTAssertTrue(result.standardError.contains("unknown command"), "the message says so")
         }
     }
@@ -53,14 +53,14 @@ final class DevkitBinaryEndToEndTests: XCTestCase {
         XCTAssertEqual(lines.dropFirst(3).first, root + "/.build/devkit", "the work folder is under the build folder")
     }
 
-    func test_outsideARepository_exitsTwoAndNamesTheDirectory() throws {
+    func test_outsideARepository_exitsSixtyFourAndNamesTheDirectory() throws {
         let sut = try makeSUT()
         let plain = sut.fixture.directory.appendingPathComponent("plain", isDirectory: true)
         try FileManager.default.createDirectory(at: plain, withIntermediateDirectories: true)
 
         let result = try sut.fixture.capture(sut.devkit.path, ["prepare-simulator", "iPhone 15", "17.5"], in: plain)
 
-        XCTAssertEqual(result.status, 2, "no repository, no command")
+        XCTAssertEqual(result.status, 64, "no repository, no command (EX_USAGE)")
         XCTAssertTrue(result.standardError.contains("is not inside a git repository"), "the message says what is wrong")
     }
 
@@ -75,7 +75,7 @@ final class DevkitBinaryEndToEndTests: XCTestCase {
         let command = try sut.fixture.capture(copy.path, ["prepare-simulator", "iPhone 15", "17.5"], in: sut.repository)
 
         XCTAssertEqual(help.status, 0, "--help needs no resources")
-        XCTAssertEqual(command.status, 2, "a command without its scripts is an error of devkit")
+        XCTAssertEqual(command.status, 70, "a command without its scripts is a broken installation (EX_SOFTWARE)")
         XCTAssertTrue(command.standardError.contains("the resource folder"), "the message says what is missing")
         XCTAssertTrue(command.standardError.contains(lonely.path), "the message names where devkit looked")
     }

@@ -19,7 +19,7 @@ final class CommandLineRunnerUsageTests: XCTestCase {
 
         let status = sut.run(arguments: [])
 
-        XCTAssertEqual(status, 2, "a missing command is a usage error")
+        XCTAssertEqual(status, 64, "a missing command is a mistake of the caller (EX_USAGE); 1 and 2 belong to the scripts")
         XCTAssertTrue(doubles.output.standardError.contains("alpha"), "the usage text on standard error lists the commands")
         XCTAssertEqual(doubles.output.standardOutput, "", "a usage error writes nothing on standard output")
     }
@@ -38,7 +38,7 @@ final class CommandLineRunnerUsageTests: XCTestCase {
 
         let status = sut.run(arguments: ["nope"])
 
-        XCTAssertEqual(status, 2, "an unknown command is a usage error")
+        XCTAssertEqual(status, 64, "an unknown command is a mistake of the caller (EX_USAGE)")
         XCTAssertTrue(doubles.output.standardError.contains("unknown command 'nope'"), "the message names the command")
         XCTAssertTrue(doubles.output.standardError.contains("alpha"), "the message lists the commands")
         XCTAssertTrue(doubles.launcher.plans.isEmpty, "nothing was started")
@@ -50,7 +50,7 @@ final class CommandLineRunnerUsageTests: XCTestCase {
 
             let status = sut.run(arguments: [name])
 
-            XCTAssertEqual(status, 2, "'\(name)' is not in the command table")
+            XCTAssertEqual(status, 64, "'\(name)' is not in the command table")
             XCTAssertTrue(doubles.launcher.plans.isEmpty, "'\(name)' must not reach the launcher")
         }
     }
