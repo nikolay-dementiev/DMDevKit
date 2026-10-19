@@ -5,6 +5,11 @@ All notable changes to DMDevKit are written here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-19
+
+The first release. It is made for the pilot in DMAction, which pins this exact version; the scripts that the libraries still keep
+as copies come in later releases.
+
 ### Added
 
 - The `devkit` command line tool: `devkit <command> [arguments]` runs a script from a fixed table, passes arguments,
