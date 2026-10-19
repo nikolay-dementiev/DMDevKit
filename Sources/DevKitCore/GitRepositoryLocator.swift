@@ -37,7 +37,8 @@ public struct GitRepositoryLocator: RepositoryLocator {
             throw DevKitError.cannotStart(executable: command.last ?? command[0],
                 reason: "the program was not found or cannot run")
         }
-        let path = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        // Bytes that are no UTF-8 would decode to replacement characters and name a folder that does not exist.
+        let path = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard process.terminationStatus == 0, !path.isEmpty else {
             throw DevKitError.notInRepository(directory: directory.path)
         }
