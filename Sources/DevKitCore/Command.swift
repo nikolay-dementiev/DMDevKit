@@ -54,6 +54,11 @@ public struct CommandTable: Sendable, Equatable {
             summary: "Boot a simulator for a device type and OS version and print its UDID"
         ),
         Command(
+            name: "check-lint-contract",
+            scriptPath: "Scripts/check-lint-contract.sh",
+            summary: "Prove that the lint rules of the repository fire where the fixtures of Fixtures/Lint expect"
+        ),
+        Command(
             name: "lint",
             scriptPath: "Scripts/lint.sh",
             summary: "Lint the repository with the SwiftLint its .swiftlint.yml pins; --analyze <log> adds the analyzer rules"
