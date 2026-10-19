@@ -207,7 +207,7 @@ final class CheckReleaseEndToEndTests: XCTestCase {
         XCTAssertEqual(first.status, 2, "FROZEN_POD_VERSION is required")
         XCTAssertTrue(first.standardError.contains("FROZEN_POD_VERSION"), "the key is named: \(first.standardError)")
         XCTAssertEqual(second.status, 2, "without PODSPEC the podspec is named after MODULE")
-        XCTAssertTrue(second.standardError.contains("MODULE") || second.standardError.contains("PODSPEC"), "the key is named: \(second.standardError)")
+        XCTAssertTrue(second.standardError.contains("devkit.conf must set MODULE or PODSPEC"), "the keys are named: \(second.standardError)")
         XCTAssertEqual(third.status, 2, "a check that reads the settings needs the file")
         XCTAssertTrue(third.standardError.contains("devkit.conf"), "the file is named: \(third.standardError)")
     }
