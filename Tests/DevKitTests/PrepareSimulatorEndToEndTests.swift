@@ -18,8 +18,10 @@ final class PrepareSimulatorEndToEndTests: XCTestCase {
         let sut = try makeSUT()
         let arguments = ["iPhone 15", "17.5"]
 
-        let direct = try sut.fixture.capture("/bin/bash", [sut.script.path] + arguments, in: sut.repository, environment: sut.environment)
-        let throughDevkit = try sut.fixture.capture(sut.devkit.path, ["prepare-simulator"] + arguments, in: sut.repository, environment: sut.environment)
+        let direct = try sut.fixture.capture("/bin/bash", [sut.script.path] + arguments, in: sut.repository,
+            environment: sut.environment)
+        let throughDevkit = try sut.fixture.capture(sut.devkit.path, ["prepare-simulator"] + arguments, in: sut.repository,
+            environment: sut.environment)
 
         XCTAssertEqual(direct.status, 0, "the shimmed simulator list has the device")
         XCTAssertEqual(direct.standardOutput, udid + "\n", "standard output is the udid line and nothing else")
@@ -30,7 +32,8 @@ final class PrepareSimulatorEndToEndTests: XCTestCase {
         let sut = try makeSUT()
 
         let direct = try sut.fixture.capture("/bin/bash", [sut.script.path], in: sut.repository, environment: sut.environment)
-        let throughDevkit = try sut.fixture.capture(sut.devkit.path, ["prepare-simulator"], in: sut.repository, environment: sut.environment)
+        let throughDevkit = try sut.fixture.capture(sut.devkit.path, ["prepare-simulator"], in: sut.repository,
+            environment: sut.environment)
 
         XCTAssertEqual(direct.status, 2, "the script's own usage status")
         XCTAssertEqual(throughDevkit, direct, "devkit adds nothing to the usage error")
@@ -39,7 +42,8 @@ final class PrepareSimulatorEndToEndTests: XCTestCase {
     func test_throughDevkit_unknownDeviceTypeIsExitOneWithEmptyStandardOutput() throws {
         let sut = try makeSUT()
 
-        let throughDevkit = try sut.fixture.capture(sut.devkit.path, ["prepare-simulator", "iPhone 99", "17.5"], in: sut.repository, environment: sut.environment)
+        let throughDevkit = try sut.fixture.capture(sut.devkit.path, ["prepare-simulator", "iPhone 99", "17.5"],
+            in: sut.repository, environment: sut.environment)
 
         XCTAssertEqual(throughDevkit.status, 1, "no device type of that name")
         XCTAssertEqual(throughDevkit.standardOutput, "", "no udid line on failure")

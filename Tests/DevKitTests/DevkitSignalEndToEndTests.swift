@@ -46,11 +46,13 @@ final class DevkitSignalEndToEndTests: XCTestCase {
             try process.run()
             defer {
                 if process.isRunning { kill(process.processIdentifier, SIGKILL) }
-                if let text = try? String(contentsOf: pidFile, encoding: .utf8), let pid = pid_t(text.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                if let text = try? String(contentsOf: pidFile,
+                    encoding: .utf8), let pid = pid_t(text.trimmingCharacters(in: .whitespacesAndNewlines)) {
                     kill(pid, SIGKILL)
                 }
             }
-            XCTAssertTrue(wait(timeout: 10) { ((try? String(contentsOf: pidFile, encoding: .utf8)) ?? "").contains("\n") }, "the script reached the shim and the shim wrote its pid")
+            XCTAssertTrue(wait(timeout: 10) { ((try? String(contentsOf: pidFile, encoding: .utf8)) ?? "").contains("\n") },
+                "the script reached the shim and the shim wrote its pid")
             deliver(process)
             XCTAssertTrue(wait(timeout: 10) { !process.isRunning }, "devkit ended after the signal")
             return process.terminationStatus
@@ -70,7 +72,8 @@ final class DevkitSignalEndToEndTests: XCTestCase {
         let fixture = try EndToEndFixture()
         let directory = fixture.directory
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
-        let sut = SUT(fixture: fixture, repository: try fixture.makeRepository(), devkit: EndToEndFixture.devkitURL(for: Self.self))
+        let sut = SUT(fixture: fixture, repository: try fixture.makeRepository(),
+            devkit: EndToEndFixture.devkitURL(for: Self.self))
         // Stands in for `xcrun simctl list -j`, the first call of the script, and never answers.
         try fixture.writeShim(named: "xcrun", body: "echo $$ > '\(sut.pidFile.path)'\nexec sleep 30\n")
         return sut

@@ -41,11 +41,12 @@ final class CommandLineRunnerLaunchTests: XCTestCase {
                 "DEVKIT_REPO_ROOT": "/repo",
                 "DEVKIT_RESOURCES": "/resources",
                 "DEVKIT_CONF": "/repo/devkit.conf",
-                "DEVKIT_WORK": "/repo/.build/devkit",
+                "DEVKIT_WORK": "/repo/.build/devkit"
             ],
             "root, resources, configuration file and work folder, as explicit paths"
         )
-        XCTAssertEqual(doubles.locator.askedDirectories.map(\.path), ["/repo/sub"], "the root is looked up from the working directory")
+        XCTAssertEqual(doubles.locator.askedDirectories.map(\.path), ["/repo/sub"],
+            "the root is looked up from the working directory")
     }
 
     func test_exitStatus_isTheChildsExitCode() {
@@ -91,7 +92,8 @@ final class CommandLineRunnerLaunchTests: XCTestCase {
         let status = sut.run(arguments: ["alpha"])
 
         XCTAssertEqual(status, 64, "a working directory outside a repository is a mistake of the caller (EX_USAGE)")
-        XCTAssertTrue(doubles.output.standardError.contains("/repo/sub is not inside a git repository"), "the message names the directory")
+        XCTAssertTrue(doubles.output.standardError.contains("/repo/sub is not inside a git repository"),
+            "the message names the directory")
         XCTAssertTrue(doubles.launcher.plans.isEmpty, "nothing was started")
     }
 
@@ -102,7 +104,8 @@ final class CommandLineRunnerLaunchTests: XCTestCase {
         let status = sut.run(arguments: ["alpha"])
 
         XCTAssertEqual(status, 70, "a script that could not start is EX_SOFTWARE")
-        XCTAssertTrue(doubles.output.standardError.contains("cannot start /bin/bash: no such file"), "the message names the executable and the reason")
+        XCTAssertTrue(doubles.output.standardError.contains("cannot start /bin/bash: no such file"),
+            "the message names the executable and the reason")
     }
 
     func test_anyOtherFailureOfDevkit_exitsSeventy() {
@@ -129,7 +132,7 @@ final class CommandLineRunnerLaunchTests: XCTestCase {
         let sut = CommandLineRunner(
             table: CommandTable(commands: [
                 Command(name: "alpha", scriptPath: "Scripts/alpha.sh", summary: "Do the alpha work"),
-                Command(name: "report", scriptPath: "Scripts/report.py", summary: "Report"),
+                Command(name: "report", scriptPath: "Scripts/report.py", summary: "Report")
             ]),
             version: "0.1.2-test",
             resourceFolder: URL(fileURLWithPath: "/resources", isDirectory: true),

@@ -36,13 +36,15 @@ final class CheckApiSelfTestMutantsEndToEndTests: XCTestCase {
     func test_notSortingTheTopLevelBlocks_failsTheSelfTest() throws {
         try assertSelfTestFails(
             "print(\"\\n\".join(sorted(blocks)))", "print(\"\\n\".join(blocks))",
-            "moving a type to another file must not look like an API change", failingCase: "conditional-declarations-reordered.same"
+            "moving a type to another file must not look like an API " +
+                "change", failingCase: "conditional-declarations-reordered.same"
         )
     }
 
     func test_countingAPackageDeclarationAsApi_failsTheSelfTest() throws {
         try assertSelfTestFails(
-            "HIDDEN = {\"private\", \"fileprivate\", \"internal\", \"package\"}", "HIDDEN = {\"private\", \"fileprivate\", \"internal\"}",
+            "HIDDEN = {\"private\", \"fileprivate\", \"internal\", \"package\"}", "HIDDEN = {\"private\", \"fileprivate\", " +
+                "\"internal\"}",
             "a package declaration is not public API", failingCase: "directive-inside-a-hidden-block.same"
         )
     }
@@ -65,7 +67,8 @@ final class CheckApiSelfTestMutantsEndToEndTests: XCTestCase {
     func test_aCopyChangedOnlyByAComment_stillPassesTheSelfTest() throws {
         let sut = try makeSUT()
         let original = try String(contentsOf: sut.script, encoding: .utf8)
-        try sut.rewrite(original.replacingOccurrences(of: "set -euo pipefail\n", with: "set -euo pipefail\n# a comment that changes nothing\n"))
+        try sut.rewrite(original.replacingOccurrences(of: "set -euo pipefail\n",
+            with: "set -euo pipefail\n# a comment that changes nothing\n"))
 
         let result = try sut.runSelfTest()
 
