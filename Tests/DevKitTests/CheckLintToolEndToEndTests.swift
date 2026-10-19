@@ -31,7 +31,7 @@ final class CheckLintToolEndToEndTests: XCTestCase {
     func test_aChecksumThatIsNotCheckedBeforeTheUnpack_failsTheCheck() throws {
         let sut = try makeSUT()
         let moved = try sut.movedResources { helper in
-            helper.replacingOccurrences(of: "if [ \"$actual\" != \"$expected\" ]; then", with: "if false; then")
+            helper.replacingOccurrences(of: "[ \"$actual\" != \"$expected\" ]", with: "false")
         }
 
         let result = try sut.runMoved(moved)
