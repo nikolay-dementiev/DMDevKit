@@ -2,12 +2,13 @@
 """Regression checks for filtering and preserving Xcode line coverage."""
 
 import importlib.util
+import os
 from pathlib import Path
 import subprocess
 import unittest
 from unittest.mock import patch
 
-spec = importlib.util.spec_from_file_location("exporter", Path(__file__).with_name("export-coverage.py"))
+spec = importlib.util.spec_from_file_location("exporter", Path(os.environ["EXPORT_COVERAGE_SCRIPT"]))
 exporter = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(exporter)
 
