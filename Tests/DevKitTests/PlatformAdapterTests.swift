@@ -22,6 +22,35 @@ final class GitRepositoryLocatorTests: XCTestCase {
         }
     }
 
+    func test_missingGit_isCannotStartNotNotInRepository() throws {
+        let (_, directory) = try makeSUT()
+        let sut = GitRepositoryLocator(command: ["/usr/bin/env", "devkit-no-such-git-tool"])
+
+        XCTAssertThrowsError(try sut.topLevel(of: directory), "a missing tool is not a missing repository") { error in
+            guard case DevKitError.cannotStart(let executable, _) = error else {
+                return XCTFail("expected cannotStart, got \(error)")
+            }
+            XCTAssertEqual(executable, "devkit-no-such-git-tool", "the error names the tool that is missing")
+        }
+    }
+
+    func test_gitEnvironmentOfTheCaller_doesNotRedirectTheLookup() throws {
+        let (sut, first) = try makeSUT()
+        let (_, second) = try makeSUT()
+        try run("git", ["init", "-q", first.path])
+        try run("git", ["init", "-q", second.path])
+        setenv("GIT_DIR", second.appendingPathComponent(".git").path, 1)
+        setenv("GIT_WORK_TREE", second.path, 1)
+        addTeardownBlock {
+            unsetenv("GIT_DIR")
+            unsetenv("GIT_WORK_TREE")
+        }
+
+        let root = try sut.topLevel(of: first)
+
+        XCTAssertEqual(root.path, realPath(first), "the repository of the working directory, not the one GIT_DIR names")
+    }
+
     // MARK: - Helpers
 
     private func makeSUT() throws -> (GitRepositoryLocator, URL) {
@@ -64,6 +93,22 @@ final class FileManagerDirectoryInspectorTests: XCTestCase {
 }
 
 final class FileHandleOutputTests: XCTestCase {
+    func test_writeToAClosedHandle_doesNotCrashTheHost() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-closed-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("closed")
+        XCTAssertTrue(FileManager.default.createFile(atPath: url.path, contents: nil), "the file exists")
+        let handle = try FileHandle(forWritingTo: url)
+        try handle.close()
+        let sut = FileHandleOutput(standardOutput: handle, standardError: handle)
+
+        sut.writeOut("lost\n")
+        sut.writeError("lost\n")
+
+        XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), "", "nothing was written, and nothing raised an exception")
+    }
+
     func test_writeOutAndWriteError_gotoTheirOwnStreams() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-out-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

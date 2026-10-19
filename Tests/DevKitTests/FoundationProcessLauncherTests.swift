@@ -1,5 +1,6 @@
 import XCTest
 import Foundation
+import os
 import DevKitCore
 
 final class FoundationProcessLauncherTests: XCTestCase {
@@ -156,6 +157,17 @@ final class FoundationProcessLauncherTests: XCTestCase {
 }
 
 final class FoundationProcessLauncherSignalTests: XCTestCase {
+    private var previousDisposition: (@convention(c) (Int32) -> Void)?
+
+    // SIGUSR1 is ignored by the test process for the whole test, so that a signal sent outside the launcher's window cannot end the runner.
+    override func setUp() {
+        previousDisposition = signal(SIGUSR1, SIG_IGN)
+    }
+
+    override func tearDown() {
+        signal(SIGUSR1, previousDisposition ?? SIG_DFL)
+    }
+
     func test_signalReceivedWhileTheChildRuns_isForwardedAndReported() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-signal-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -171,10 +183,15 @@ final class FoundationProcessLauncherSignalTests: XCTestCase {
         exit 5
         """.write(to: script, atomically: true, encoding: .utf8)
         let sut = FoundationProcessLauncher(forwardedSignals: [SIGUSR1])
+        let finished = OSAllocatedUnfairLock(initialState: false)
+        // Sends the signal again and again while the launcher runs: the first ones may come before it is armed.
         DispatchQueue.global().async {
-            for _ in 0..<100 where !FileManager.default.fileExists(atPath: ready.path) { usleep(50_000) }
-            kill(getpid(), SIGUSR1)
+            while !finished.withLock({ $0 }) && !FileManager.default.fileExists(atPath: marker.path) {
+                if FileManager.default.fileExists(atPath: ready.path) { kill(getpid(), SIGUSR1) }
+                usleep(50_000)
+            }
         }
+        defer { finished.withLock { $0 = true } }
 
         let result = try sut.run(RunPlan(
             executable: "/bin/bash",

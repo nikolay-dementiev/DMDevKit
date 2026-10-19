@@ -94,6 +94,34 @@ final class ConfLoaderTests: XCTestCase {
         XCTAssertEqual(result.standardOutput, "[unset]\n", "only the file decides what a setting is")
     }
 
+    func test_callerWithAnotherIFS_getsTheSameResult() throws {
+        let valid = try makeSUT(conf: "DEVKIT_CONF_VERSION=1\nMODULE=Foo\n", prelude: "IFS=$'\\n\\t'")
+        let unknown = try makeSUT(conf: "DEVKIT_CONF_VERSION=1\nBOGUS=1\n", prelude: "IFS=$'\\n\\t'")
+
+        XCTAssertEqual(try valid.run("echo \"$MODULE\"").standardOutput, "Foo\n", "a hardened IFS does not break the loader")
+        XCTAssertEqual(try unknown.run("echo loaded").status, 2, "unknown names are still found")
+    }
+
+    func test_confThatSetsADevkitPath_isRejected() throws {
+        for line in ["DEVKIT_REPO_ROOT=/elsewhere", "DEVKIT_CONF=/elsewhere/devkit.conf", "DEVKIT_WORK=/elsewhere", "DEVKIT_RESOURCES=/elsewhere"] {
+            let sut = try makeSUT(conf: "DEVKIT_CONF_VERSION=1\n\(line)\n", environment: ["DEVKIT_WORK": "/work", "DEVKIT_RESOURCES": "/resources"])
+
+            let result = try sut.run("echo loaded")
+
+            XCTAssertEqual(result.status, 2, "'\(line)' changes a path that devkit gave")
+            XCTAssertTrue(result.standardError.contains(line.split(separator: "=")[0]), "the message names the variable")
+        }
+    }
+
+    func test_podspecDefault_withoutARepositoryRoot_isRejected() throws {
+        let sut = try makeSUT(conf: "DEVKIT_CONF_VERSION=1\nMODULE=Foo\n", environment: ["DEVKIT_REPO_ROOT": ""])
+
+        let result = try sut.run("echo \"$PODSPEC\"")
+
+        XCTAssertEqual(result.status, 2, "a podspec path needs the root")
+        XCTAssertTrue(result.standardError.contains("DEVKIT_REPO_ROOT"), "the message names the missing variable")
+    }
+
     // MARK: - Helpers
 
     struct SUT {
@@ -101,14 +129,15 @@ final class ConfLoaderTests: XCTestCase {
         let root: URL
         let loader: URL
         let environment: [String: String]
+        var prelude = ""
 
         func run(_ body: String) throws -> Captured {
-            let script = "set -euo pipefail\n. \"$LOADER\"\ndevkit_conf_load\n" + body + "\n"
+            let script = "set -euo pipefail\n" + prelude + "\n. \"$LOADER\"\ndevkit_conf_load\n" + body + "\n"
             return try fixture.capture("/bin/bash", ["-c", script], in: root, environment: environment)
         }
     }
 
-    private func makeSUT(conf: String?, environment: [String: String] = [:]) throws -> SUT {
+    private func makeSUT(conf: String?, environment: [String: String] = [:], prelude: String = "") throws -> SUT {
         let fixture = try EndToEndFixture()
         let directory = fixture.directory
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
@@ -120,6 +149,6 @@ final class ConfLoaderTests: XCTestCase {
         base["LOADER"] = loader.path
         base["DEVKIT_REPO_ROOT"] = realRoot.path
         base["DEVKIT_CONF"] = realRoot.appendingPathComponent("devkit.conf").path
-        return SUT(fixture: fixture, root: realRoot, loader: loader, environment: base.merging(environment) { _, added in added })
+        return SUT(fixture: fixture, root: realRoot, loader: loader, environment: base.merging(environment) { _, added in added }, prelude: prelude)
     }
 }

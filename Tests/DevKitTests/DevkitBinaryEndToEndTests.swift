@@ -64,6 +64,22 @@ final class DevkitBinaryEndToEndTests: XCTestCase {
         XCTAssertTrue(result.standardError.contains("is not inside a git repository"), "the message says what is wrong")
     }
 
+    func test_binaryCopiedAwayFromItsResources_reportsTheMissingFolderInsteadOfCrashing() throws {
+        let sut = try makeSUT()
+        let lonely = sut.fixture.directory.appendingPathComponent("lonely", isDirectory: true)
+        try FileManager.default.createDirectory(at: lonely, withIntermediateDirectories: true)
+        let copy = lonely.appendingPathComponent("devkit")
+        try FileManager.default.copyItem(at: sut.devkit, to: copy)
+
+        let help = try sut.fixture.capture(copy.path, ["--help"], in: sut.repository)
+        let command = try sut.fixture.capture(copy.path, ["prepare-simulator", "iPhone 15", "17.5"], in: sut.repository)
+
+        XCTAssertEqual(help.status, 0, "--help needs no resources")
+        XCTAssertEqual(command.status, 2, "a command without its scripts is an error of devkit")
+        XCTAssertTrue(command.standardError.contains("the resource folder"), "the message says what is missing")
+        XCTAssertTrue(command.standardError.contains(lonely.path), "the message names where devkit looked")
+    }
+
     // MARK: - Helpers
 
     struct SUT {
@@ -76,6 +92,8 @@ final class DevkitBinaryEndToEndTests: XCTestCase {
         let fixture = try EndToEndFixture()
         let directory = fixture.directory
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
-        return SUT(fixture: fixture, repository: try fixture.makeRepository(), devkit: EndToEndFixture.devkitURL(for: Self.self))
+        let devkit = EndToEndFixture.devkitURL(for: Self.self)
+        XCTAssertTrue(FileManager.default.isExecutableFile(atPath: devkit.path), "the built devkit is at \(devkit.path); build the product before the tests")
+        return SUT(fixture: fixture, repository: try fixture.makeRepository(), devkit: devkit)
     }
 }

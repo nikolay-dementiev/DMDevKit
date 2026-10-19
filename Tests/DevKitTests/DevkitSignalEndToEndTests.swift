@@ -50,7 +50,7 @@ final class DevkitSignalEndToEndTests: XCTestCase {
                     kill(pid, SIGKILL)
                 }
             }
-            XCTAssertTrue(wait(timeout: 10) { FileManager.default.fileExists(atPath: pidFile.path) }, "the script reached the shim")
+            XCTAssertTrue(wait(timeout: 10) { ((try? String(contentsOf: pidFile, encoding: .utf8)) ?? "").contains("\n") }, "the script reached the shim and the shim wrote its pid")
             deliver(process)
             XCTAssertTrue(wait(timeout: 10) { !process.isRunning }, "devkit ended after the signal")
             return process.terminationStatus
