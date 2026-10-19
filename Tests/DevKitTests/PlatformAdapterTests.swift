@@ -34,6 +34,17 @@ final class GitRepositoryLocatorTests: XCTestCase {
         }
     }
 
+    func test_topLevel_whenGitPrintsBytesThatAreNoUtf8_throwsNotInRepository() throws {
+        let (_, directory) = try makeSUT()
+        let script = directory.appendingPathComponent("fake-git.sh")
+        try "printf '/tmp/\\377\\376\\n'\n".write(to: script, atomically: true, encoding: .utf8)
+        let sut = GitRepositoryLocator(command: ["/bin/bash", script.path])
+
+        XCTAssertThrowsError(try sut.topLevel(of: directory), "a path that cannot be read is not a path") { error in
+            XCTAssertEqual(error as? DevKitError, .notInRepository(directory: directory.path), "the error names the directory")
+        }
+    }
+
     func test_gitEnvironmentOfTheCaller_doesNotRedirectTheLookup() throws {
         let (sut, first) = try makeSUT()
         let (_, second) = try makeSUT()
