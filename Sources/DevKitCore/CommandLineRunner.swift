@@ -4,6 +4,11 @@ import Foundation
 public struct CommandLineRunner {
     private let table: CommandTable
     private let version: String
+    private let resourceFolder: URL
+    private let workingDirectory: URL
+    private let launcher: any ProcessLauncher
+    private let repositoryLocator: any RepositoryLocator
+    private let directoryInspector: any DirectoryInspector
     private let output: any TextOutput
 
     public init(
@@ -18,6 +23,11 @@ public struct CommandLineRunner {
     ) {
         self.table = table
         self.version = version
+        self.resourceFolder = resourceFolder
+        self.workingDirectory = workingDirectory
+        self.launcher = launcher
+        self.repositoryLocator = repositoryLocator
+        self.directoryInspector = directoryInspector
         self.output = output
     }
 
@@ -35,12 +45,44 @@ public struct CommandLineRunner {
             output.writeOut("\(version)\n")
             return 0
         default:
-            guard table.command(named: first) != nil else {
+            guard let command = table.command(named: first) else {
                 output.writeError("devkit: unknown command '\(first)'\n\(usage())")
                 return 2
             }
-            output.writeError("devkit: '\(first)' cannot run yet\n")
+            return launch(command, arguments: Array(arguments.dropFirst()))
+        }
+    }
+
+    private func launch(_ command: Command, arguments: [String]) -> Int32 {
+        do {
+            guard directoryInspector.isDirectory(at: resourceFolder) else {
+                throw DevKitError.missingResourceFolder(path: resourceFolder.path)
+            }
+            let root = try repositoryLocator.topLevel(of: workingDirectory)
+            let plan = makePlan(for: command, arguments: arguments, root: root)
+            return ExitMapping.status(for: try launcher.run(plan))
+        } catch let error as DevKitError {
+            output.writeError("devkit: \(error.message)\n")
             return 2
+        } catch {
+            output.writeError("devkit: \(error.localizedDescription)\n")
+            return 2
+        }
+    }
+
+    private func makePlan(for command: Command, arguments: [String], root: URL) -> RunPlan {
+        let script = resourceFolder.appendingPathComponent(command.scriptPath).path
+        let environment = [
+            DevKitEnvironment.repositoryRoot: root.path,
+            DevKitEnvironment.resources: resourceFolder.path,
+            DevKitEnvironment.configuration: root.appendingPathComponent("devkit.conf").path,
+            DevKitEnvironment.work: root.appendingPathComponent(".build/devkit", isDirectory: true).path,
+        ]
+        switch command.interpreter {
+        case .bash:
+            return RunPlan(executable: "/bin/bash", arguments: [script] + arguments, environment: environment)
+        case .python:
+            return RunPlan(executable: "/usr/bin/env", arguments: ["python3", "-B", script] + arguments, environment: environment)
         }
     }
 
