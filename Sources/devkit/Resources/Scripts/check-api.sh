@@ -2,12 +2,12 @@
 #
 # Compares the public interface of the library with the committed baseline.
 #
-#   Scripts/check-api.sh               compare, exit 1 on any difference
-#   Scripts/check-api.sh --update      rewrite the baseline from the current sources
-#   Scripts/check-api.sh --since <ref> print the lines the baseline lost, changed or gained since
-#                                      a git ref, such as a release tag, without a compiler
-#   Scripts/check-api.sh --self-test   run the normalisation on the cases in
-#                                      Fixtures/API/normalizer, no compiler needed
+#   devkit check-api               compare, exit 1 on any difference
+#   devkit check-api --update      rewrite the baseline from the current sources
+#   devkit check-api --since <ref> print the lines the baseline lost, changed or gained since
+#                                  a git ref, such as a release tag, without a compiler
+#   devkit check-api --self-test   run the normalisation on the cases in the Fixtures/API/normalizer
+#                                  folder of DMDevKit, no compiler needed
 #
 # Any difference fails. A removed or changed line breaks the public contract: it needs a new major
 # version. The check cannot tell a line that a new compiler reworded from a line that the code
@@ -33,40 +33,17 @@
 
 set -euo pipefail
 
-# ==== Settings of this repository =======================================================
-# The packages DMAction, DMVariableBlurView and DMUnLoader share this script. Only this
-# block differs between them. Everything below the end marker is identical in the three:
-# a change there is made in the copy of DMVariableBlurView and synced to the other two.
+# Functions imported from the caller's environment could replace a tool this script trusts (git, python3, diff):
+# only the functions it defines itself count.
+while IFS= read -r FUNCTION; do unset -f "$FUNCTION"; done < <(compgen -A function)
 
-# The module whose public interface is checked.
-MODULE="DMVariableBlurView"
-# The directory the manifest compiles for that module, relative to the repository root.
-SOURCE_DIR="Sources/DMVariableBlurView"
-# The language mode and the upcoming features the manifest sets for the module.
-SWIFT_FLAGS=(-swift-version 6 -enable-upcoming-feature ExistentialAny)
-# "yes" to emit the interface with library evolution, "no" without it.
-LIBRARY_EVOLUTION="yes"
-# Modules of package dependencies that the module imports, compiled first and in this
-# order. One entry per module: "<module>|<source directory>|<compiler flags>", where the
-# flags mirror the manifest of the dependency, including its -package-name.
-DEPENDENCIES=()
-# A command run from the repository root before anything is compiled, for example
-# (swift package resolve) to check out the dependencies. Empty: nothing to prepare.
-PREPARE=()
-
-# ==== End of the settings ===============================================================
-
-# An array that a settings block leaves out, or leaves empty, is an empty array from here
-# on. Bash 3.2, the version macOS ships, treats an empty array as unbound under set -u.
-SWIFT_FLAGS=(${SWIFT_FLAGS[@]+"${SWIFT_FLAGS[@]}"})
-DEPENDENCIES=(${DEPENDENCIES[@]+"${DEPENDENCIES[@]}"})
-PREPARE=(${PREPARE[@]+"${PREPARE[@]}"})
-
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [ -z "${DEVKIT_REPO_ROOT:-}" ] || [ -z "${DEVKIT_RESOURCES:-}" ] || [ -z "${DEVKIT_WORK:-}" ]; then
+    echo "check-api: run it as 'devkit check-api'" >&2
+    exit 2
+fi
+ROOT="$DEVKIT_REPO_ROOT"
 BASELINE="$ROOT/Fixtures/API/public-interface.txt"
-WORK="$ROOT/.build/check-api"
-INTERFACE="$WORK/$MODULE.swiftinterface"
-CURRENT="$WORK/public-interface.txt"
+WORK="$DEVKIT_WORK/check-api"
 
 mkdir -p "$WORK"
 
@@ -531,7 +508,7 @@ sys.exit(status)
 # text. A change to normalize() that hides an API change, or reports one that is not
 # there, fails one of them.
 if [ "${1:-}" = "--self-test" ]; then
-    CASES="$ROOT/Fixtures/API/normalizer"
+    CASES="$DEVKIT_RESOURCES/Fixtures/API/normalizer"
     FAILED=0
     for CASE in "$CASES"/*.txt; do
         NAME="$(basename "$CASE" .txt)"
@@ -676,8 +653,8 @@ if [ "${1:-}" = "--self-test" ]; then
     expect_delta delta-block-left-open 2 none 'public struct S {\n  public func f()\n' 'public struct S {\n  public func f()\n  public func g()\n'
     expect_delta delta-block-ending-where-none-began 2 none 'public struct S {\n  public func f()\n}\n}\n' 'public struct S {\n  public func f()\n  public func g()\n}\n}\n'
     expect_delta delta-branch-outside-a-condition 2 none 'public func one()\n#else\npublic func two()\n' 'public func one()\n#else\npublic func two()\npublic func three()\n'
-    # --since reads the baselines of the repository its script sits in, so these cases run a copy of
-    # the script in a scratch repository with two commits: one without a baseline and one with it.
+    # --since reads the baselines of the repository it is given, so these cases run the script against
+    # a scratch repository with two commits: one without a baseline and one with it.
     # A status alone would also match a crash, so each case names a text of its output as well. The
     # scratch repository is kept apart from the environment of the caller: GIT_DIR and the other
     # variables that git lists with rev-parse --local-env-vars would point git at the repository or
@@ -690,7 +667,8 @@ if [ "${1:-}" = "--self-test" ]; then
     expect_since() {
         local name="$1" expected_status="$2" expected_text="$3" status=0
         shift 3
-        env ${GIT_LOCAL_VARIABLES[@]+"${GIT_LOCAL_VARIABLES[@]}"} "$SCRATCH/Scripts/check-api.sh" --since "$@" > "$WORK/$name.out" 2> "$WORK/$name.error" || status=$?
+        env ${GIT_LOCAL_VARIABLES[@]+"${GIT_LOCAL_VARIABLES[@]}"} DEVKIT_REPO_ROOT="$SCRATCH" DEVKIT_WORK="$SCRATCH/.build/devkit" \
+            "$DEVKIT_RESOURCES/Scripts/check-api.sh" --since "$@" > "$WORK/$name.out" 2> "$WORK/$name.error" || status=$?
         if [ "$status" = "$expected_status" ] && grep -q -F -- "$expected_text" "$WORK/$name.out" "$WORK/$name.error"; then
             echo "check-api: ok   $name"
         else
@@ -705,8 +683,7 @@ if [ "${1:-}" = "--self-test" ]; then
     }
     SCRATCH="$WORK/since-repository"
     rm -rf "$SCRATCH"
-    mkdir -p "$SCRATCH/Scripts" "$SCRATCH/Fixtures/API"
-    cp "${BASH_SOURCE[0]}" "$SCRATCH/Scripts/check-api.sh"
+    mkdir -p "$SCRATCH/Fixtures/API"
     scratch_git init -q
     printf 'a repository without a baseline\n' > "$SCRATCH/README"
     scratch_git add -f README
@@ -743,7 +720,7 @@ if [ "${1:-}" = "--since" ]; then
     REF="${2:-}"
     case "$REF" in
         '' | -*)
-            echo "usage: Scripts/check-api.sh --since <git ref>" >&2
+            echo "usage: devkit check-api --since <git ref>" >&2
             exit 2
             ;;
     esac
@@ -783,6 +760,22 @@ if [ "${1:-}" = "--since" ]; then
     esac
     exit "$STATUS"
 fi
+
+# The settings of the repository. Only the compile modes need them: --self-test and --since end above.
+# MODULE and SOURCE_DIR are required, the arrays are empty when the file leaves them out, and
+# LIBRARY_EVOLUTION is "no" unless the file says "yes".
+# shellcheck source=SCRIPTDIR/lib/devkit-conf.sh
+. "$DEVKIT_RESOURCES/Scripts/lib/devkit-conf.sh"
+devkit_conf_load || exit $?
+for KEY in MODULE SOURCE_DIR; do
+    if [ -z "${!KEY-}" ]; then
+        echo "check-api: devkit.conf must set $KEY" >&2
+        exit 2
+    fi
+done
+LIBRARY_EVOLUTION="${LIBRARY_EVOLUTION:-no}"
+INTERFACE="$WORK/$MODULE.swiftinterface"
+CURRENT="$WORK/public-interface.txt"
 
 # The files of a module are passed in one fixed order. A plain sort follows the locale
 # of the machine, and the order of the files is the order in which the compiler emits
@@ -909,6 +902,6 @@ echo "check-api: the public interface differs from the baseline." >&2
 echo "  A '-' line was removed or changed: that breaks the public contract and needs a new major version." >&2
 echo "  A '+' line is new public API. A case of a public enum, a protocol requirement without a default implementation and an overload" >&2
 echo "  that makes an existing call ambiguous are breaking and need a new major version; a requirement with a default implementation is additive only" >&2
-echo "  when its name is new to the protocol and to its extensions. When the line is additive, run Scripts/check-api.sh --update and commit the baseline." >&2
+echo "  when its name is new to the protocol and to its extensions. When the line is additive, run devkit check-api --update and commit the baseline." >&2
 cat "$WORK/api.diff" >&2
 exit 1
