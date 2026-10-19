@@ -1,8 +1,8 @@
 import XCTest
 import Foundation
 
-/// Every command that sources the SwiftLint helper clears the shell functions it inherits before anything runs, so that a function
-/// in the caller's environment cannot stand in for `shasum` or another tool the checksum check relies on.
+/// Every command that sources the SwiftLint helper clears the shell functions it inherits before anything runs, so that a
+/// function in the caller's environment cannot stand in for `shasum` or another tool the checksum check relies on.
 final class FunctionClearingEndToEndTests: XCTestCase {
     /// `tool` is a program the command surely runs: the function of that name must never run.
     private static let commands: [(name: String, arguments: [String], tool: String)] = [
@@ -11,7 +11,7 @@ final class FunctionClearingEndToEndTests: XCTestCase {
         ("check-lint-tool", ["check-lint-tool"], "shasum"),
         ("swiftlint-fetch", ["swiftlint-fetch", RealSwiftLint.version], "shasum"),
         ("check-api", ["check-api", "--self-test"], "git"),
-        ("check-release", ["check-release", "--notes", "1.1.0"], "awk"),
+        ("check-release", ["check-release", "--notes", "1.1.0"], "awk")
     ]
     private static let clearingLine = "while IFS= read -r FUNCTION; do unset -f \"$FUNCTION\"; done < <(compgen -A function)"
 
@@ -19,10 +19,12 @@ final class FunctionClearingEndToEndTests: XCTestCase {
         for command in Self.commands {
             let sut = try makeSUT(tool: command.tool)
 
-            let result = try sut.fixture.capture(sut.devkit.path, command.arguments, in: sut.repository, environment: sut.environment)
+            let result = try sut.fixture.capture(sut.devkit.path, command.arguments, in: sut.repository,
+                environment: sut.environment)
 
             XCTAssertEqual(result.status, 0, "'\(command.name)' works on a clean scratch repository: \(result.standardError)")
-            XCTAssertFalse(FileManager.default.fileExists(atPath: sut.marker.path), "'\(command.name)' ran a \(command.tool) function from the caller's environment")
+            XCTAssertFalse(FileManager.default.fileExists(atPath: sut.marker.path),
+                "'\(command.name)' ran a \(command.tool) function from the caller's environment")
         }
     }
 
@@ -43,21 +45,25 @@ final class FunctionClearingEndToEndTests: XCTestCase {
             environment["DEVKIT_CONF"] = EndToEndFixture.realPath(sut.repository) + "/devkit.conf"
             environment["DEVKIT_WORK"] = EndToEndFixture.realPath(sut.repository) + "/.build/devkit"
 
-            _ = try sut.fixture.capture("/bin/bash", [script.path] + Array(command.arguments.dropFirst()), in: sut.repository, environment: environment)
+            _ = try sut.fixture.capture("/bin/bash", [script.path] + Array(command.arguments.dropFirst()), in: sut.repository,
+                environment: environment)
 
-            XCTAssertTrue(FileManager.default.fileExists(atPath: sut.marker.path), "positive control: without the line '\(command.name)' does run the caller's \(command.tool), so the test above can fail")
+            XCTAssertTrue(FileManager.default.fileExists(atPath: sut.marker.path),
+                "positive control: without the line '\(command.name)' does run the caller's \(command.tool), so the test above " +
+                "can fail")
         }
     }
 
-    /// The clearing line asks `compgen` for the functions to remove, so an exported `compgen` that lists none defeats it. The launcher
-    /// does not hand exported functions to the scripts at all; this is why it matters.
+    /// The clearing line asks `compgen` for the functions to remove, so an exported `compgen` that lists none defeats it. The
+    /// launcher does not hand exported functions to the scripts at all; this is why it matters.
     func test_exportedCompgenFunction_doesNotLetAToolFunctionRunThroughDevkit() throws {
         for command in Self.commands {
             let sut = try makeSUT(tool: command.tool, alsoFunctions: ["compgen": "() { :; }"])
 
             _ = try sut.fixture.capture(sut.devkit.path, command.arguments, in: sut.repository, environment: sut.environment)
 
-            XCTAssertFalse(FileManager.default.fileExists(atPath: sut.marker.path), "'\(command.name)' ran a \(command.tool) function although the caller exported a compgen that lists none")
+            XCTAssertFalse(FileManager.default.fileExists(atPath: sut.marker.path),
+                "'\(command.name)' ran a \(command.tool) function although the caller exported a compgen that lists none")
         }
     }
 
@@ -70,9 +76,11 @@ final class FunctionClearingEndToEndTests: XCTestCase {
         environment["DEVKIT_CONF"] = root + "/devkit.conf"
         environment["DEVKIT_WORK"] = root + "/.build/devkit"
 
-        _ = try sut.fixture.capture("/bin/bash", [sut.resources.appendingPathComponent("Scripts/check-lint-tool.sh").path], in: sut.repository, environment: environment)
+        _ = try sut.fixture.capture("/bin/bash", [sut.resources.appendingPathComponent("Scripts/check-lint-tool.sh").path],
+            in: sut.repository, environment: environment)
 
-        XCTAssertTrue(FileManager.default.fileExists(atPath: sut.marker.path), "positive control: started by hand, the script runs the caller's shasum, so the test above can fail")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: sut.marker.path),
+            "positive control: started by hand, the script runs the caller's shasum, so the test above can fail")
     }
 
     // MARK: - Helpers
@@ -98,9 +106,12 @@ final class FunctionClearingEndToEndTests: XCTestCase {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try text.write(to: url, atomically: true, encoding: .utf8)
         }
-        try "## [1.1.0] - 2026-10-03\n\n- a change\n".write(to: repository.appendingPathComponent("CHANGELOG.md"), atomically: true, encoding: .utf8)
-        try LintContractEndToEndTests.config.write(to: repository.appendingPathComponent(".swiftlint.yml"), atomically: true, encoding: .utf8)
-        try LintContractEndToEndTests.conf().write(to: repository.appendingPathComponent("devkit.conf"), atomically: true, encoding: .utf8)
+        try "## [1.1.0] - 2026-10-03\n\n- a change\n".write(to: repository.appendingPathComponent("CHANGELOG.md"),
+            atomically: true, encoding: .utf8)
+        try LintContractEndToEndTests.config.write(to: repository.appendingPathComponent(".swiftlint.yml"), atomically: true,
+            encoding: .utf8)
+        try LintContractEndToEndTests.conf().write(to: repository.appendingPathComponent("devkit.conf"), atomically: true,
+            encoding: .utf8)
         try RealSwiftLint.seed(into: repository)
         let marker = directory.appendingPathComponent("tool.ran")
         // The function records that it ran and then calls the real tool, so a run that does use it still succeeds.

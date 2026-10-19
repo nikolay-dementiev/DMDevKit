@@ -35,7 +35,8 @@ final class SwiftLintHelperEndToEndTests: XCTestCase {
         let result = try sut.run(["swiftlint-fetch", RealSwiftLint.version])
 
         XCTAssertEqual(result.status, 2, "a wrong archive is status 2")
-        XCTAssertFalse(FileManager.default.fileExists(atPath: folder.appendingPathComponent("portable_swiftlint.zip").path), "the archive was removed")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: folder.appendingPathComponent("portable_swiftlint.zip").path),
+            "the archive was removed")
         XCTAssertFalse(FileManager.default.fileExists(atPath: sut.unzipLog.path), "it never reached the unpack")
     }
 
@@ -45,11 +46,13 @@ final class SwiftLintHelperEndToEndTests: XCTestCase {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let tampered = folder.appendingPathComponent("portable_swiftlint.zip")
         try Data("not the archive".utf8).write(to: tampered)
-        let checksum = try sut.fixture.capture("/bin/bash", ["-c", "shasum -a 256 '\(tampered.path)' | cut -d ' ' -f 1"]).standardOutput
+        let checksum = try sut.fixture.capture("/bin/bash", ["-c",
+            "shasum -a 256 '\(tampered.path)' | cut -d ' ' -f 1"]).standardOutput
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
         // Bash imports a function from a variable of this name; the helper must define its own table over it.
-        let result = try sut.run(["swiftlint-fetch", RealSwiftLint.version], adding: ["BASH_FUNC_swiftlint_checksum%%": "() { echo \(checksum); }"])
+        let result = try sut.run(["swiftlint-fetch", RealSwiftLint.version],
+            adding: ["BASH_FUNC_swiftlint_checksum%%": "() { echo \(checksum); }"])
 
         XCTAssertEqual(result.status, 2, "the checksum of the table wins over the caller's function")
         XCTAssertFalse(FileManager.default.fileExists(atPath: sut.unzipLog.path), "the tampered archive never reached the unpack")
@@ -61,10 +64,14 @@ final class SwiftLintHelperEndToEndTests: XCTestCase {
             let sut = try makeSUT()
             try sut.placeTamperedArchive()
 
-            let result = try sut.run(["swiftlint-fetch", RealSwiftLint.version], adding: ["BASH_FUNC_\(tool)%%": "() { echo \(tableChecksum); }"])
+            let result = try sut.run(["swiftlint-fetch", RealSwiftLint.version],
+                adding: ["BASH_FUNC_\(tool)%%": "() { echo \(tableChecksum); }"])
 
-            XCTAssertEqual(result.status, 2, "a function named \(tool) from the caller's environment must not make the tampered archive pass: \(result.standardError)")
-            XCTAssertFalse(FileManager.default.fileExists(atPath: sut.unzipLog.path), "the tampered archive never reached the unpack (\(tool))")
+            XCTAssertEqual(result.status, 2,
+                "a function named \(tool) from the caller's environment must not make the tampered archive pass: " +
+                "\(result.standardError)")
+            XCTAssertFalse(FileManager.default.fileExists(atPath: sut.unzipLog.path),
+                "the tampered archive never reached the unpack (\(tool))")
         }
     }
 
@@ -76,17 +83,21 @@ final class SwiftLintHelperEndToEndTests: XCTestCase {
         try FileManager.default.copyItem(at: EndToEndFixture.resourceFolder(for: Self.self), to: moved)
         let script = moved.appendingPathComponent("Scripts/swiftlint-fetch.sh")
         let original = try String(contentsOf: script, encoding: .utf8)
-        let cleared = original.replacingOccurrences(of: "while IFS= read -r FUNCTION; do unset -f \"$FUNCTION\"; done < <(compgen -A function)", with: ":")
+        let cleared = original.replacingOccurrences(of: "while IFS= read -r FUNCTION; do unset -f \"$FUNCTION\"; done < " +
+            "<(compgen -A function)", with: ":")
         XCTAssertNotEqual(cleared, original, "the script clears the imported functions in the one line this control removes")
         try cleared.write(to: script, atomically: true, encoding: .utf8)
-        var environment = sut.fixture.shimmedEnvironment(adding: ["BASH_FUNC_shasum%%": "() { echo c1e429b0599cf1b516f369a2d9ec04eaf0e436f3c12b637df8851fa52ff694d0; }"])
+        var environment = sut.fixture.shimmedEnvironment(adding: ["BASH_FUNC_shasum%%": "() { echo " +
+            "c1e429b0599cf1b516f369a2d9ec04eaf0e436f3c12b637df8851fa52ff694d0; }"])
         environment["DEVKIT_REPO_ROOT"] = EndToEndFixture.realPath(sut.repository)
         environment["DEVKIT_RESOURCES"] = moved.path
 
-        let result = try sut.fixture.capture("/bin/bash", [script.path, RealSwiftLint.version], in: sut.repository, environment: environment)
+        let result = try sut.fixture.capture("/bin/bash", [script.path, RealSwiftLint.version], in: sut.repository,
+            environment: environment)
 
         XCTAssertNotEqual(result.status, 2, "positive control: with the line removed the fake shasum passes the check")
-        XCTAssertTrue(FileManager.default.fileExists(atPath: sut.unzipLog.path), "positive control: the tampered archive reached the unpack")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: sut.unzipLog.path),
+            "positive control: the tampered archive reached the unpack")
     }
 
     func test_fetch_unpacksACopyInAPrivateFolderNotTheSharedArchive() throws {
@@ -98,7 +109,8 @@ final class SwiftLintHelperEndToEndTests: XCTestCase {
         XCTAssertEqual(result.status, 0, "the fetch works: \(result.standardError)")
         let call = try String(contentsOf: sut.unzipLog, encoding: .utf8).split(separator: " ").map(String.init)
         let archive = call.first { $0.hasSuffix(".zip") } ?? ""
-        XCTAssertTrue(archive.contains("/unpack."), "the bytes that were checked are the bytes that are unpacked: a copy in the private folder, not \(archive)")
+        XCTAssertTrue(archive.contains("/unpack."),
+            "the bytes that were checked are the bytes that are unpacked: a copy in the private folder, not \(archive)")
     }
 
     func test_fetch_withoutAnArchiveDownloadsTheReleaseOverHttpsWithTheShim() throws {
@@ -140,9 +152,11 @@ final class SwiftLintHelperEndToEndTests: XCTestCase {
         }
         var unzipLog: URL { fixture.directory.appendingPathComponent("unzip.log") }
 
-        func run(_ arguments: [String], adding: [String: String] = [:], shimmedCurlDelivering archive: URL? = nil) throws -> Captured {
+        func run(_ arguments: [String], adding: [String: String] = [:],
+            shimmedCurlDelivering archive: URL? = nil) throws -> Captured {
             try installShims(curlDelivering: archive)
-            return try fixture.capture(devkit.path, arguments, in: repository, environment: fixture.shimmedEnvironment(adding: adding))
+            return try fixture.capture(devkit.path, arguments, in: repository,
+                environment: fixture.shimmedEnvironment(adding: adding))
         }
 
         func installShims(curlDelivering archive: URL? = nil) throws {
