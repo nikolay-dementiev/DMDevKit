@@ -56,22 +56,26 @@ public struct CommandTable: Sendable, Equatable {
         Command(
             name: "check-api",
             scriptPath: "Scripts/check-api.sh",
-            summary: "Compare the public interface of the library with its committed baseline; --update, --since <ref>, --self-test"
+            summary: "Compare the public interface of the library with its committed baseline; --update, --since <ref>, " +
+                "--self-test"
         ),
         Command(
             name: "export-coverage",
             scriptPath: "Scripts/export-coverage.py",
-            summary: "Export the line coverage of a library target from an Xcode result bundle to LCOV: <xcresult> <target> <output>"
+            summary: "Export the line coverage of a library target from an Xcode result bundle to LCOV: <xcresult> <target> " +
+                "<output>"
         ),
         Command(
             name: "count-tests",
             scriptPath: "Scripts/count-tests.sh",
-            summary: "Check that every test method of some test files ran and passed in a result bundle: [--label <text>] <xcresult> <glob>..."
+            summary: "Check that every test method of some test files ran and passed in a result bundle: [--label <text>] " +
+                "<xcresult> <glob>..."
         ),
         Command(
             name: "check-release",
             scriptPath: "Scripts/check-release.sh",
-            summary: "Check a release version against the changelog, the frozen podspec and the interface since the previous release; --notes <version>, --self-test"
+            summary: "Check a release version against the changelog, the frozen podspec and the interface since the previous " +
+                "release; --notes <version>, --self-test"
         ),
         Command(
             name: "check-lint-tool",
@@ -92,6 +96,6 @@ public struct CommandTable: Sendable, Equatable {
             name: "swiftlint-fetch",
             scriptPath: "Scripts/swiftlint-fetch.sh",
             summary: "Fetch a SwiftLint version into .build/tools, checked against the checksum table, and print its path"
-        ),
+        )
     ])
 }

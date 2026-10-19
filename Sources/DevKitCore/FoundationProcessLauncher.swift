@@ -3,16 +3,17 @@ import os
 
 /// Starts the child with `Process`. The child shares the streams given here and the working directory of `devkit`.
 ///
-/// Signals: each one in `forwardedSignals` that arrives while the child runs is sent on to the child, and `devkit` does not die of it.
-/// Only the child itself is signalled, not the processes it started. On a terminal the process group also gets Ctrl-C directly,
-/// so a child on the terminal's foreground group sees SIGINT twice.
+/// Signals: each one in `forwardedSignals` that arrives while the child runs is sent on to the child, and `devkit` does not die
+/// of it. Only the child itself is signalled, not the processes it started. On a terminal the process group also gets Ctrl-C
+/// directly, so a child on the terminal's foreground group sees SIGINT twice.
 public struct FoundationProcessLauncher: ProcessLauncher {
     private let standardInput: FileHandle
     private let standardOutput: FileHandle
     private let standardError: FileHandle
     private let forwardedSignals: [Int32]
 
-    /// The defaults are the real streams of `devkit` and the two signals a terminal or a CI runner sends: nothing is captured, nothing is merged.
+    /// The defaults are the real streams of `devkit` and the two signals a terminal or a CI runner sends: nothing is captured,
+    /// nothing is merged.
     ///
     /// - Parameters:
     ///   - standardInput: the child's input.
@@ -33,9 +34,9 @@ public struct FoundationProcessLauncher: ProcessLauncher {
 
     /// Starts the child, waits for it, and says how it ended and which signal was forwarded to it.
     ///
-    /// The signals are taken over before the child starts: one that arrives earlier is kept and sent as soon as the child has a pid.
-    /// One that arrives after the child ended is dropped. The child must not inherit the ignored dispositions; Foundation's `Process`
-    /// resets them on start, and the end-to-end signal tests would fail if it did not.
+    /// The signals are taken over before the child starts: one that arrives earlier is kept and sent as soon as the child has a
+    /// pid. One that arrives after the child ended is dropped. The child must not inherit the ignored dispositions; Foundation's
+    /// `Process` resets them on start, and the end-to-end signal tests would fail if it did not.
     /// - Throws: `DevKitError.cannotStart` when the executable cannot be started.
     public func run(_ plan: RunPlan) throws -> LaunchResult {
         let process = Process()
@@ -65,10 +66,10 @@ public struct FoundationProcessLauncher: ProcessLauncher {
 
     private static let droppedNames: Set<String> = ["BASH_ENV", "ENV", "SHELLOPTS", "BASHOPTS", "PS4"]
 
-    /// The environment of `devkit` without what makes a shell run the caller's code before the first line of a script: `BASH_ENV` and
-    /// `ENV` name a file it reads at start, `SHELLOPTS`, `BASHOPTS` and `PS4` switch on tracing that expands a prompt, and a `BASH_FUNC_*`
-    /// variable is an exported function, which could stand in for a tool or for the `compgen` with which a script clears the functions
-    /// it inherits. What the plan adds is never filtered.
+    /// The environment of `devkit` without what makes a shell run the caller's code before the first line of a script: `BASH_ENV`
+    /// and `ENV` name a file it reads at start, `SHELLOPTS`, `BASHOPTS` and `PS4` switch on tracing that expands a prompt, and
+    /// a `BASH_FUNC_*` variable is an exported function, which could stand in for a tool or for the `compgen` with which a
+    /// script clears the functions it inherits. What the plan adds is never filtered.
     private static func inheritedEnvironment() -> [String: String] {
         ProcessInfo.processInfo.environment.filter { name, _ in
             !(Self.droppedNames.contains(name) || name.hasPrefix("BASH_FUNC_"))
