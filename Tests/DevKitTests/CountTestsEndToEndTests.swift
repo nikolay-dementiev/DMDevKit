@@ -137,7 +137,7 @@ final class CountTestsEndToEndTests: XCTestCase {
 
     func test_aGitGrepThatFails_isStatusTwoNotAnExpectedCountOfZero() throws {
         let sut = try makeSUT(files: ["Tests/A.swift": Self.threeTests], summary: Summary(total: 0, passed: 0))
-        try sut.fixture.writeShim(named: "git", body: "if [ \"$1\" = grep ]; then echo 'fatal: grep is out of order' >&2; exit 128; fi\nexec /usr/bin/git \"$@\"\n")
+        try sut.fixture.writeShim(named: "git", body: "for argument in \"$@\"; do\n    if [ \"$argument\" = grep ]; then echo 'fatal: grep is out of order' >&2; exit 128; fi\ndone\nexec /usr/bin/git \"$@\"\n")
 
         let result = try sut.run(["Fake.xcresult", "Tests/*.swift"])
 
@@ -174,6 +174,33 @@ final class CountTestsEndToEndTests: XCTestCase {
 
         XCTAssertEqual(result.status, 2, "no DEVKIT_REPO_ROOT, no run")
         XCTAssertTrue(result.standardError.contains("run it as 'devkit count-tests'"), "the message names the command: \(result.standardError)")
+    }
+
+    // MARK: - Functions of the caller
+
+    func test_anExportedGitFunction_isNotRunByAScriptStartedByHand_andIsRunWithoutTheClearingLine() throws {
+        let sut = try makeSUT(files: ["Tests/A.swift": Self.threeTests], summary: Summary(total: 3, passed: 3))
+        let marker = sut.fixture.directory.appendingPathComponent("git.ran")
+        let functions = ["BASH_FUNC_git%%": "() { echo ran >> '\(marker.path)'; /usr/bin/git \"$@\"; }"]
+        let root = EndToEndFixture.realPath(sut.repository)
+        let line = "while IFS= read -r FUNCTION; do unset -f \"$FUNCTION\"; done < <(compgen -A function)"
+        let moved = sut.fixture.directory.appendingPathComponent("moved", isDirectory: true)
+        try FileManager.default.copyItem(at: sut.resources, to: moved)
+        let mutated = moved.appendingPathComponent("Scripts/count-tests.sh")
+        let original = try String(contentsOf: mutated, encoding: .utf8)
+        XCTAssertTrue(original.contains(line), "the clearing line is in the script")
+        var environment = sut.fixture.shimmedEnvironment(adding: functions)
+        environment["DEVKIT_REPO_ROOT"] = root
+        environment["DEVKIT_RESOURCES"] = sut.resources.path
+        environment["DEVKIT_WORK"] = root + "/.build/devkit"
+
+        _ = try sut.fixture.capture("/bin/bash", [sut.resources.appendingPathComponent("Scripts/count-tests.sh").path, "Fake.xcresult", "Tests/*.swift"], in: sut.repository, environment: environment)
+        let ranWithTheLine = FileManager.default.fileExists(atPath: marker.path)
+        try original.replacingOccurrences(of: line, with: ":").write(to: mutated, atomically: true, encoding: .utf8)
+        _ = try sut.fixture.capture("/bin/bash", [mutated.path, "Fake.xcresult", "Tests/*.swift"], in: sut.repository, environment: environment)
+
+        XCTAssertFalse(ranWithTheLine, "the caller's git function is cleared before it can run")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: marker.path), "positive control: without the line the function does run, so the check above can fail")
     }
 
     // MARK: - Helpers
