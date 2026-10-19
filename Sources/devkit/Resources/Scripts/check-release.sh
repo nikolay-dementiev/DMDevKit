@@ -2,14 +2,14 @@
 #
 # Checks a release version against the changelog, and that the podspec names the frozen version.
 #
-#   Scripts/check-release.sh <version>           check; exit 1 if not ready, 2 if it cannot compare
-#   Scripts/check-release.sh --notes <version>   print the changelog section of that version
-#   Scripts/check-release.sh --self-test         run the decisions of this script in scratch repositories
+#   devkit check-release <version>           check; exit 1 if not ready, 2 if it cannot compare
+#   devkit check-release --notes <version>   print the changelog section of that version
+#   devkit check-release --self-test         run the decisions of this script in scratch repositories
 #
 # A release starts from a tag that is the version itself, such as 1.1.0. The newest heading of
 # CHANGELOG.md must be `## [1.1.0] - YYYY-MM-DD`, with the date of the release. The release notes
 # are the section under that heading. The pod is frozen: the podspec stays at the last version
-# published to the trunk, FROZEN_POD_VERSION below, whatever the release version is. The release
+# published to the trunk, FROZEN_POD_VERSION of devkit.conf, whatever the release version is. The release
 # workflow runs this script on the tag; run it before you push one.
 #
 # The release is also compared with the one before it. That release comes from the tags: it is the
@@ -18,7 +18,7 @@
 # that is not lower than the version, one that skips a reachable release tag, and a changelog with
 # no heading below although a release tag is reachable are each a problem. The release must raise
 # the major version when the baseline lost or changed a line since the tag of that release
-# (Scripts/check-api.sh --since), or when its notes have a heading of breaking changes, where a
+# (devkit check-api --since), or when its notes have a heading of breaking changes, where a
 # change of behaviour is declared because no script can see one: a heading of any level, or a line
 # that opens with bold text, whose first word is "breaking", in any letter case, with blanks,
 # punctuation or an emoji in front of it. A heading that says there are none ("No breaking
@@ -29,7 +29,7 @@
 # single release heading is read as the first release; a heading below the newest that looks like
 # a release but is not of a form read here ('## Version 1.0.0', '### [1.0.0]') is a problem. A
 # tag that is not in the repository, or a comparison that cannot run, is exit 2, never a pass, and
-# so is a CHANGELOG.md that is not there. Run Scripts/check-api.sh first: the baseline is the
+# so is a CHANGELOG.md that is not there. Run devkit check-api first: the baseline is the
 # interface of the library only while that check passes. The tag of the release before it must
 # also be an ancestor of the commit being released: a tag on a side branch is a problem. When the
 # newest heading is for the version, a shallow clone, which cannot say which release is below the
@@ -39,7 +39,7 @@
 # ambiguous as breaking; it cannot see which of them an added line is.
 #
 # --self-test builds a scratch repository for each decision and runs a copy of this script in it,
-# with the real Scripts/check-api.sh --since, a python3 that is missing or fails, and a digester
+# with the real check-api --since, a python3 that is missing or fails, and a digester
 # that finds a break or cannot run. It needs git and python3, and no compiler.
 #
 # Where Scripts/check-api-digester.sh exists, a release that keeps its major version is also
@@ -55,12 +55,18 @@
 
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Functions imported from the caller's environment could replace a tool this script trusts (git, python3, sed):
+# only the functions it defines itself count.
+while IFS= read -r FUNCTION; do unset -f "$FUNCTION"; done < <(compgen -A function)
+
+if [ -z "${DEVKIT_REPO_ROOT:-}" ] || [ -z "${DEVKIT_RESOURCES:-}" ] || [ -z "${DEVKIT_WORK:-}" ]; then
+    echo "check-release: run it as 'devkit check-release'" >&2
+    exit 2
+fi
+ROOT="$DEVKIT_REPO_ROOT"
 CHANGELOG="$ROOT/CHANGELOG.md"
-PODSPEC="$ROOT/DMVariableBlurView.podspec"
-# The CocoaPods channel ended with 1.1.0 (README, "CocoaPods"). The podspec stays at that
-# version; the release version is checked against the changelog alone.
-FROZEN_POD_VERSION="1.1.0"
+# PODSPEC and FROZEN_POD_VERSION come from devkit.conf, which is read after --notes and --self-test:
+# the notes need the changelog alone, and the self-test writes settings of its own.
 
 # Runs the decisions of this script in scratch repositories, and exits. A case builds a repository
 # with a changelog, a podspec, tags and baselines, runs a copy of this script in it, and compares
@@ -73,12 +79,16 @@ self_test() {
     local total=0 failures=0 number=0 variable absent_note tool tool_path no_python broken_python
     local real_git no_merge_base old_git no_tag_list
     local git_local=()
-    # The cases run copies of this script, which carry the same PODSPEC line: a name that is wrong
-    # would be wrong in every copy and pass. The file it names has to be in this repository.
-    if [ ! -f "$PODSPEC" ]; then
-        echo "check-release: self-test: the podspec ${PODSPEC#"$ROOT"/} does not exist; PODSPEC at the top of this script names it" >&2
-        exit 2
-    fi
+    # The settings every scenario writes into its own devkit.conf: the repository under test is never read.
+    FROZEN_POD_VERSION="1.1.0"
+    local podspec_name="Lib.podspec"
+    # A scenario runs the real check-api and the loader of devkit.conf from a scratch copy of the resource folder.
+    for tool in Scripts/check-api.sh Scripts/lib/devkit-conf.sh; do
+        if [ ! -f "$DEVKIT_RESOURCES/$tool" ]; then
+            echo "check-release: self-test: $DEVKIT_RESOURCES/$tool does not exist" >&2
+            exit 2
+        fi
+    done
     if ! command -v python3 > /dev/null 2>&1 || ! python3 -c 'import datetime' > /dev/null 2>&1; then
         echo "check-release: self-test: python3 is needed, and it does not run on this machine" >&2
         exit 2
@@ -194,9 +204,8 @@ SHIM
     # The repository a case describes. The release before this one is committed, with its baseline,
     # and tagged: on the line of main, on a side branch that main does not contain, or not at all.
     build_repo() {  # <directory>
-        local directory="$1" podspec_name tag_spec tag_name tag_baseline
+        local directory="$1" tag_spec tag_name tag_baseline resources="$SELF_TEST_WORK/resources-$number"
         local tag_specs=()
-        podspec_name="$(basename "$PODSPEC")"
         mkdir -p "$directory/Scripts" "$directory/Fixtures/API"
         scratch_git "$directory" init -q
         printf 'base\n' > "$directory/README"
@@ -268,9 +277,10 @@ SHIM
             fi
         } > "$directory/CHANGELOG.md"
         printf "Pod::Spec.new do |s|\n  s.version = '%s'\nend\n" "$S_PODSPEC" > "$directory/$podspec_name"
+        printf 'DEVKIT_CONF_VERSION=1\nMODULE="Lib"\nFROZEN_POD_VERSION="%s"\n' "$FROZEN_POD_VERSION" > "$directory/devkit.conf"
         mkdir -p "$directory/Fixtures/API"
         baseline_text "$S_NEW" > "$directory/Fixtures/API/public-interface.txt"
-        scratch_git "$directory" add -f CHANGELOG.md "$podspec_name" Fixtures/API/public-interface.txt
+        scratch_git "$directory" add -f CHANGELOG.md "$podspec_name" devkit.conf Fixtures/API/public-interface.txt
         scratch_git "$directory" commit -q -m "the release"
         # The release job runs on the tag of the release itself.
         if [ "$S_HEADTAG" = "yes" ]; then
@@ -282,13 +292,17 @@ SHIM
         if [ "$S_NOCHANGELOG" = "yes" ]; then
             rm -f "$directory/CHANGELOG.md"
         fi
-        cp "${BASH_SOURCE[0]}" "$directory/Scripts/check-release.sh"
+        # The resource folder of the scenario: this script as it is run, the loader of devkit.conf, and
+        # the real check-api or a stub in its place.
+        mkdir -p "$resources/Scripts/lib"
+        cp "$DEVKIT_RESOURCES/Scripts/check-release.sh" "$resources/Scripts/check-release.sh"
+        cp "$DEVKIT_RESOURCES/Scripts/lib/devkit-conf.sh" "$resources/Scripts/lib/devkit-conf.sh"
         if [ "$S_API" = "stub" ]; then
-            printf '#!/bin/bash\necho "%s"\nexit %s\n' "$S_STUB_TEXT" "$S_STUB_STATUS" > "$directory/Scripts/check-api.sh"
+            printf '#!/bin/bash\necho "%s"\nexit %s\n' "$S_STUB_TEXT" "$S_STUB_STATUS" > "$resources/Scripts/check-api.sh"
         else
-            cp "$ROOT/Scripts/check-api.sh" "$directory/Scripts/check-api.sh"
+            cp "$DEVKIT_RESOURCES/Scripts/check-api.sh" "$resources/Scripts/check-api.sh"
         fi
-        chmod +x "$directory/Scripts/check-release.sh" "$directory/Scripts/check-api.sh"
+        chmod +x "$resources/Scripts/check-release.sh" "$resources/Scripts/check-api.sh"
         if [ "$S_DIGESTER" != "none" ]; then
             # shellcheck disable=SC2016
             case "$S_DIGESTER" in
@@ -380,7 +394,9 @@ SHIM
             actions_env=(GITHUB_ACTIONS=true)
         fi
         output="$(env ${git_local[@]+"${git_local[@]}"} -u GITHUB_ACTIONS ${actions_env[@]+"${actions_env[@]}"} \
-            PATH="$run_path" /bin/bash "$directory/Scripts/check-release.sh" "${arguments[@]}" 2>&1)" || status=$?
+            DEVKIT_REPO_ROOT="$directory" DEVKIT_RESOURCES="$SELF_TEST_WORK/resources-$number" DEVKIT_CONF="$directory/devkit.conf" \
+            DEVKIT_WORK="$directory/.build/devkit" \
+            PATH="$run_path" /bin/bash "$SELF_TEST_WORK/resources-$number/Scripts/check-release.sh" "${arguments[@]}" 2>&1)" || status=$?
         judge "$name" "$expected_status" "$expected_text" "$status" "$output" "$S_ABSENT"
     }
 
@@ -420,10 +436,10 @@ SHIM
     run_case "a heading indented by four blanks is code and passes" 0 "agrees on 1.1.0" "subsection=    ### Breaking changes"
     run_case "a heading with no date" 1 "has no heading of the form" nodate=yes
     run_case "a heading with nothing under it" 1 "has no notes under a heading for 1.1.0" empty=yes
-    run_case "a version with two groups of digits" 2 "usage: Scripts/check-release.sh" version=1.1
-    run_case "a version with four groups of digits" 2 "usage: Scripts/check-release.sh" version=1.1.0.1
-    run_case "a version that starts with a dot" 2 "usage: Scripts/check-release.sh" version=.1.0
-    run_case "a version with a group of ten digits" 2 "usage: Scripts/check-release.sh" version=1.1234567890.0
+    run_case "a version with two groups of digits" 2 "usage: devkit check-release" version=1.1
+    run_case "a version with four groups of digits" 2 "usage: devkit check-release" version=1.1.0.1
+    run_case "a version that starts with a dot" 2 "usage: devkit check-release" version=.1.0
+    run_case "a version with a group of ten digits" 2 "usage: devkit check-release" version=1.1234567890.0
     run_case "a tag with a group that overflows a comparison is not a release tag" 1 "the changelog skips 1.5.0" version=1.6.1 tags=1.4.0:keep,1.5.0:keep,1.10000000000000000000.0:keep "below=## [1.4.0] - 2025-10-11\n\n- earlier"
     run_case "a podspec that is not there is exit 2, not a release that is not ready" 2 "does not exist" nopodspec=yes
     run_case "a changelog that is not there is exit 2" 2 "CHANGELOG.md does not exist" nochangelog=yes
@@ -505,7 +521,7 @@ SHIM
 
 if [ "${1:-}" = "--self-test" ]; then
     if [ "$#" -ne 1 ]; then
-        echo "usage: Scripts/check-release.sh --self-test" >&2
+        echo "usage: devkit check-release --self-test" >&2
         exit 2
     fi
     self_test
@@ -533,7 +549,7 @@ valid_version() {
 }
 
 if ! valid_version "$VERSION"; then
-    echo "usage: Scripts/check-release.sh [--notes] <version>, a version such as 1.1.0" >&2
+    echo "usage: devkit check-release [--notes] <version>, a version such as 1.1.0" >&2
     exit 2
 fi
 
@@ -568,11 +584,22 @@ if [ "$NOTES" -eq 1 ]; then
     exit 0
 fi
 
-# The one line of this script that differs between the repositories that share it names the
-# podspec. A name that is wrong makes the script read a file that is not there, which is not a
-# release that is not ready.
+# The settings of the repository: the version the pod is frozen at, and the podspec, which is named
+# after MODULE unless PODSPEC names it. A name that is wrong makes the script read a file that is
+# not there, which is not a release that is not ready.
+# shellcheck source=SCRIPTDIR/lib/devkit-conf.sh
+. "$DEVKIT_RESOURCES/Scripts/lib/devkit-conf.sh"
+devkit_conf_load || exit $?
+if [ -z "${FROZEN_POD_VERSION-}" ]; then
+    echo "check-release: devkit.conf must set FROZEN_POD_VERSION" >&2
+    exit 2
+fi
+if [ -z "${PODSPEC-}" ]; then
+    echo "check-release: devkit.conf must set MODULE or PODSPEC, which name the podspec" >&2
+    exit 2
+fi
 if [ ! -f "$PODSPEC" ]; then
-    echo "check-release: the podspec ${PODSPEC#"$ROOT"/} does not exist; PODSPEC at the top of this script names it" >&2
+    echo "check-release: the podspec ${PODSPEC#"$ROOT"/} does not exist; PODSPEC in devkit.conf names it" >&2
     exit 2
 fi
 
@@ -757,7 +784,7 @@ if [ -n "$PREVIOUS" ]; then
                 ;;
         esac
         DELTA_STATUS=0
-        DELTA="$("$ROOT/Scripts/check-api.sh" --since "$PREVIOUS" 2>&1)" || DELTA_STATUS=$?
+        DELTA="$("$DEVKIT_RESOURCES/Scripts/check-api.sh" --since "$PREVIOUS" 2>&1)" || DELTA_STATUS=$?
         case "$DELTA_STATUS" in
             0) ;;
             1)
@@ -766,7 +793,7 @@ if [ -n "$PREVIOUS" ]; then
                 case "$DELTA" in
                     *"Removed or changed"*)
                         if [ "$RAISES_MAJOR" -eq 0 ]; then
-                            PROBLEMS+=("the interface lost or changed lines since $PREVIOUS (Scripts/check-api.sh --since $PREVIOUS lists them): that needs a new major version, and $VERSION does not raise the major version of $PREVIOUS")
+                            PROBLEMS+=("the interface lost or changed lines since $PREVIOUS (devkit check-api --since $PREVIOUS lists them): that needs a new major version, and $VERSION does not raise the major version of $PREVIOUS")
                         fi
                         ;;
                     *)
