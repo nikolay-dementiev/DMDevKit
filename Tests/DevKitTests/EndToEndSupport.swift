@@ -135,8 +135,9 @@ enum RealSwiftLint {
 
     struct MissingArchive: Error, CustomStringConvertible {
         let path: String
-        var description: String { "SwiftLint \(RealSwiftLint.version) is not in \(path); fetch it with: " +
-            "\(RealSwiftLint.fetchCommand)" }
+        var description: String {
+            "SwiftLint \(RealSwiftLint.version) is not in \(path); fetch it with: \(RealSwiftLint.fetchCommand)"
+        }
     }
 
     /// Copies the archive into `<repository>/.build/tools/swiftlint-<version>/`; the helper checks it and unpacks the tool.

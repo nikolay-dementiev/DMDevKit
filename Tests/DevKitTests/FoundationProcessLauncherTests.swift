@@ -81,9 +81,15 @@ final class FoundationProcessLauncherTests: XCTestCase {
 
     func test_inheritedShellStartupHooks_areNotPassedToTheChild() throws {
         let sut = try makeSUT()
-        let hooks = ["BASH_ENV": "/nonexistent/startup", "ENV": "/nonexistent/startup", "BASH_FUNC_shasum%%": "() { echo fake; }",
+        let hooks = [
+            "BASH_ENV": "/nonexistent/startup",
+            "ENV": "/nonexistent/startup",
+            "BASH_FUNC_shasum%%": "() { echo fake; }",
             "DEVKIT_TEST_KEPT": "kept",
-                     "SHELLOPTS": "xtrace", "BASHOPTS": "extdebug", "PS4": "$(touch /nonexistent/x)"]
+            "SHELLOPTS": "xtrace",
+            "BASHOPTS": "extdebug",
+            "PS4": "$(touch /nonexistent/x)"
+        ]
         let previous = hooks.keys.reduce(into: [String: String]()) { $0[$1] = ProcessInfo.processInfo.environment[$1] }
         for (name, value) in hooks { setenv(name, value, 1) }
         addTeardownBlock {

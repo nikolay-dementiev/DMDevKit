@@ -13,7 +13,7 @@ public struct GitRepositoryLocator: RepositoryLocator {
     ///
     /// The `GIT_*` variables that point git at another repository are removed from the child's environment: the answer is about
     /// `directory`, whatever a hook or a CI step exported.
-    /// - Throws: `DevKitError.notInRepository` when git says there is no repository,
+    /// - Throws: `DevKitError.notInRepository` when git says there is no repository or prints a path that is not UTF-8,
     ///   `DevKitError.cannotStart` when git cannot run.
     public func topLevel(of directory: URL) throws -> URL {
         let process = Process()
