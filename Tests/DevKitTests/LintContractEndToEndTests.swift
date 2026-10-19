@@ -195,14 +195,14 @@ final class LintContractEndToEndTests: XCTestCase {
       domain_imports:
         name: "Domain imports"
         included: ".*/Sources/Lib/Domain/.*\\\\.swift"
-        regex: '^import\\\\s+(?!Foundation\\\\b)\\\\w+'
+        regex: '^import\\s+(?!Foundation\\b)\\w+'
         match_kinds: [keyword, identifier]
         message: "Foundation only."
         severity: error
       no_process_termination:
         name: "No process termination"
         included: ".*/Sources/Lib/.*\\\\.swift"
-        regex: '\\\\bfatalError\\\\s*\\\\('
+        regex: '\\bfatalError\\s*\\('
         match_kinds: [identifier]
         message: "A library never terminates its host."
         severity: error
