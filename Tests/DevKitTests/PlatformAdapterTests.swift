@@ -11,7 +11,7 @@ final class GitRepositoryLocatorTests: XCTestCase {
 
         let root = try sut.topLevel(of: sub)
 
-        XCTAssertEqual(root.path, directory.resolvingSymlinksInPath().path, "git reports the real path of the top level, not the subfolder")
+        XCTAssertEqual(root.path, realPath(directory), "git reports the real path of the top level, not the subfolder")
     }
 
     func test_topLevel_outsideARepositoryThrowsNotInRepository() throws {
@@ -29,6 +29,13 @@ final class GitRepositoryLocatorTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
         return (GitRepositoryLocator(), directory)
+    }
+
+    /// `resolvingSymlinksInPath` keeps `/var` for `/private/var`; git reports the real path.
+    private func realPath(_ url: URL) -> String {
+        guard let resolved = realpath(url.path, nil) else { return url.path }
+        defer { free(resolved) }
+        return String(cString: resolved)
     }
 
     private func run(_ tool: String, _ arguments: [String]) throws {
