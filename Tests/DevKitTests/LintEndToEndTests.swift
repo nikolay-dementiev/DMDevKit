@@ -130,7 +130,10 @@ final class LintEndToEndTests: XCTestCase {
     func test_noResourceScriptDerivesAPathFromItsOwnLocation() throws {
         let sut = try makeSUT(seed: false)
 
-        let result = try sut.fixture.capture("/usr/bin/grep", ["-rn", "BASH_SOURCE", sut.resources.appendingPathComponent("Scripts").path])
+        let result = try sut.fixture.capture(
+            "/usr/bin/grep",
+            ["-rnE", "BASH_SOURCE|dirname[^|]*\\$0|\\$\\{0", sut.resources.appendingPathComponent("Scripts").path]
+        )
 
         XCTAssertEqual(result.status, 1, "grep finds nothing: \(result.standardOutput)")
     }
@@ -151,7 +154,7 @@ final class LintEndToEndTests: XCTestCase {
     }
 
     private func makeSUT(
-        config: String = "swiftlint_version: 0.65.1\nopt_in_rules:\n  - force_unwrapping\nincluded:\n  - Sources\n",
+        config: String = "swiftlint_version: \(RealSwiftLint.version)\nopt_in_rules:\n  - force_unwrapping\nincluded:\n  - Sources\n",
         files: [String: String] = ["Sources/A.swift": "let value = 1\n"],
         seed: Bool = true
     ) throws -> SUT {

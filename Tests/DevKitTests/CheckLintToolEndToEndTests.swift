@@ -25,7 +25,7 @@ final class CheckLintToolEndToEndTests: XCTestCase {
         let result = try sut.runMoved(moved)
 
         XCTAssertEqual(result.status, 1, "the old helper that wrote in place does not pass")
-        XCTAssertTrue(result.standardError.contains("check-lint-tool: FAIL"), "a failure is named: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("the unpack wrote into the file that a running process could hold"), "behaviour 1 is the one named: \(result.standardError)")
     }
 
     func test_aChecksumThatIsNotCheckedBeforeTheUnpack_failsTheCheck() throws {
@@ -91,13 +91,14 @@ final class CheckLintToolEndToEndTests: XCTestCase {
             let changed = change(original)
             if mutates && changed == original {
                 XCTFail("the mutation matched nothing in the helper, so the test would prove nothing")
+                throw CocoaError(.fileWriteUnknown)
             }
             try changed.write(to: helper, atomically: true, encoding: .utf8)
             return moved
         }
 
         func runMoved(_ moved: URL) throws -> Captured {
-            var environment = ProcessInfo.processInfo.environment
+            var environment = fixture.shimmedEnvironment()
             environment["DEVKIT_REPO_ROOT"] = EndToEndFixture.realPath(repository)
             environment["DEVKIT_RESOURCES"] = moved.path
             return try fixture.capture("/bin/bash", [moved.appendingPathComponent("Scripts/check-lint-tool.sh").path], in: repository, environment: environment)

@@ -42,14 +42,23 @@ final class EndToEndFixture {
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
     }
 
+    /// The environment of the test run without what could aim a scratch repository at a real one (a git hook exports GIT_DIR) or change
+    /// how bash starts (BASH_ENV, exported functions); a test that wants one of them adds it back.
+    static var cleanEnvironment: [String: String] {
+        ProcessInfo.processInfo.environment.filter { key, _ in
+            !(key.hasPrefix("GIT_") || key.hasPrefix("DEVKIT_") || key.hasPrefix("SWIFTLINT_") || key.hasPrefix("BASH_FUNC_")
+                || key == "BASH_ENV" || key == "ENV")
+        }
+    }
+
     /// Environment with the shim folder first on the PATH.
     func shimmedEnvironment(adding extra: [String: String] = [:]) -> [String: String] {
-        var environment = ProcessInfo.processInfo.environment
+        var environment = Self.cleanEnvironment
         environment["PATH"] = shimDirectory.path + ":" + (environment["PATH"] ?? "/usr/bin:/bin")
         return environment.merging(extra) { _, added in added }
     }
 
-    func capture(_ executable: String, _ arguments: [String], in workingDirectory: URL? = nil, environment: [String: String]? = nil) throws -> Captured {
+    func capture(_ executable: String, _ arguments: [String], in workingDirectory: URL? = nil, environment: [String: String]? = nil, timeout: TimeInterval = 180) throws -> Captured {
         let outputURL = directory.appendingPathComponent("out-\(UUID().uuidString)")
         let errorURL = directory.appendingPathComponent("err-\(UUID().uuidString)")
         for url in [outputURL, errorURL] { FileManager.default.createFile(atPath: url.path, contents: nil) }
@@ -57,12 +66,19 @@ final class EndToEndFixture {
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = arguments
         process.currentDirectoryURL = workingDirectory
-        process.environment = environment
+        process.environment = environment ?? Self.cleanEnvironment
         process.standardInput = FileHandle.nullDevice
         process.standardOutput = try FileHandle(forWritingTo: outputURL)
         process.standardError = try FileHandle(forWritingTo: errorURL)
         try process.run()
-        process.waitUntilExit()
+        // A script that waits for something that never comes must fail the test, not hang the run.
+        let deadline = Date().addingTimeInterval(timeout)
+        while process.isRunning && Date() < deadline { usleep(20_000) }
+        if process.isRunning {
+            kill(process.processIdentifier, SIGKILL)
+            process.waitUntilExit()
+            XCTFail("\(executable) \(arguments) did not end in \(Int(timeout)) seconds")
+        }
         return Captured(
             status: process.terminationStatus,
             standardOutput: try String(contentsOf: outputURL, encoding: .utf8),
@@ -97,10 +113,14 @@ enum RealSwiftLint {
         let root = URL(fileURLWithPath: "\(file)").deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         let archive = root.appendingPathComponent(".build/tools/swiftlint-\(version)/portable_swiftlint.zip")
         guard FileManager.default.fileExists(atPath: archive.path) else {
-            XCTFail("SwiftLint \(version) is not in \(archive.path); fetch it with: \(fetchCommand)")
-            throw CocoaError(.fileNoSuchFile)
+            throw MissingArchive(path: archive.path)
         }
         return archive
+    }
+
+    struct MissingArchive: Error, CustomStringConvertible {
+        let path: String
+        var description: String { "SwiftLint \(RealSwiftLint.version) is not in \(path); fetch it with: \(RealSwiftLint.fetchCommand)" }
     }
 
     /// Copies the archive into `<repository>/.build/tools/swiftlint-<version>/`; the helper checks it and unpacks the tool.

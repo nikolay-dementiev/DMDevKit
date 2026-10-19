@@ -141,7 +141,7 @@ final class LintContractEndToEndTests: XCTestCase {
         XCTAssertTrue(second.standardError.contains("RULES"), "the key is named: \(second.standardError)")
     }
 
-    func test_fixtureDirectory_defaultsAndCanBeSet() throws {
+    func test_fixtureDirectory_canBeSet() throws {
         var moved = Dictionary(uniqueKeysWithValues: Self.files.map { ($0.key.replacingOccurrences(of: "Fixtures/Lint", with: "Fx"), $0.value) })
         moved["Sources/Lib/Keep.swift"] = "let kept = 1\n"
         let sut = try makeSUT(files: moved, conf: Self.conf(extra: "FIXTURE_DIR=\"Fx/\"\n"))
@@ -188,7 +188,7 @@ final class LintContractEndToEndTests: XCTestCase {
 
     /// A miniature of a library: one rule that applies in `Sources/Lib/Domain` and one in all of `Sources/Lib`.
     static let config = """
-    swiftlint_version: 0.65.1
+    swiftlint_version: \(RealSwiftLint.version)
     included:
       - Sources
     custom_rules:
