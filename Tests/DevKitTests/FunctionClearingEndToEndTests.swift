@@ -11,6 +11,7 @@ final class FunctionClearingEndToEndTests: XCTestCase {
         ("check-lint-tool", ["check-lint-tool"], "shasum"),
         ("swiftlint-fetch", ["swiftlint-fetch", RealSwiftLint.version], "shasum"),
         ("check-api", ["check-api", "--self-test"], "git"),
+        ("check-release", ["check-release", "--self-test"], "git"),
     ]
     private static let clearingLine = "while IFS= read -r FUNCTION; do unset -f \"$FUNCTION\"; done < <(compgen -A function)"
 
