@@ -27,20 +27,31 @@ final class CountTestsEndToEndTests: XCTestCase {
         XCTAssertTrue(result.standardError.contains("totalTestCount") && result.standardError.contains("passedTests"), "the counts of the bundle are printed: \(result.standardError)")
     }
 
+    func test_fewerPassedTestsThanTheFiles_isStatusOne() throws {
+        let sut = try makeSUT(files: ["Tests/A.swift": Self.threeTests], summary: Summary(total: 3, passed: 2))
+
+        let result = try sut.run(["Fake.xcresult", "Tests/*.swift"])
+
+        XCTAssertEqual(result.status, 1, "a test that neither passed, failed nor skipped is not accepted")
+        XCTAssertTrue(result.standardError.contains("Expected 3 tests to run and pass"), "the count disagrees, it did not crash: \(result.standardError)")
+    }
+
     func test_aSkippedTest_isStatusOne() throws {
-        let sut = try makeSUT(files: ["Tests/A.swift": Self.threeTests], summary: Summary(total: 3, passed: 2, skipped: 1))
+        let sut = try makeSUT(files: ["Tests/A.swift": Self.threeTests], summary: Summary(total: 3, passed: 3, skipped: 1))
 
         let result = try sut.run(["Fake.xcresult", "Tests/*.swift"])
 
         XCTAssertEqual(result.status, 1, "a test that skips itself is not a test that ran")
+        XCTAssertTrue(result.standardError.contains("Expected 3 tests to run and pass"), "the count disagrees, it did not crash: \(result.standardError)")
     }
 
     func test_aFailedTest_isStatusOne() throws {
-        let sut = try makeSUT(files: ["Tests/A.swift": Self.threeTests], summary: Summary(total: 3, passed: 2, failed: 1))
+        let sut = try makeSUT(files: ["Tests/A.swift": Self.threeTests], summary: Summary(total: 3, passed: 3, failed: 1))
 
         let result = try sut.run(["Fake.xcresult", "Tests/*.swift"])
 
         XCTAssertEqual(result.status, 1, "a failed test fails the count")
+        XCTAssertTrue(result.standardError.contains("Expected 3 tests to run and pass"), "the count disagrees, it did not crash: \(result.standardError)")
     }
 
     func test_moreTestsInTheBundleThanInTheFiles_isStatusOne() throws {
@@ -49,6 +60,7 @@ final class CountTestsEndToEndTests: XCTestCase {
         let result = try sut.run(["Fake.xcresult", "Tests/*.swift"])
 
         XCTAssertEqual(result.status, 1, "the bundle is not the one of these files")
+        XCTAssertTrue(result.standardError.contains("Expected 3 tests to run and pass"), "the count disagrees, it did not crash: \(result.standardError)")
     }
 
     func test_aTotalThatIsNotThePassedCount_isStatusOne() throws {
@@ -68,12 +80,22 @@ final class CountTestsEndToEndTests: XCTestCase {
         XCTAssertTrue(result.standardError.contains("Expected 0 tests"), "the expected count is named: \(result.standardError)")
     }
 
-    func test_aGlobThatMatchesNoFile_isStatusOne() throws {
-        let sut = try makeSUT(files: ["Tests/A.swift": Self.threeTests], summary: Summary(total: 3, passed: 3))
+    func test_aGlobThatMatchesNoTrackedFile_isStatusTwoNamingIt() throws {
+        let sut = try makeSUT(files: ["Tests/A.swift": Self.threeTests], summary: Summary(total: 0, passed: 0))
 
         let result = try sut.run(["Fake.xcresult", "Elsewhere/*.swift"])
 
-        XCTAssertEqual(result.status, 1, "a glob that finds nothing counts nothing")
+        XCTAssertEqual(result.status, 2, "a glob that finds nothing is a mistake of the caller or a moved folder, not a count")
+        XCTAssertTrue(result.standardError.contains("no tracked file matches Elsewhere/*.swift"), "the glob is named: \(result.standardError)")
+    }
+
+    func test_oneGlobThatMatchesNothingAmongOthers_isStatusTwo() throws {
+        let sut = try makeSUT(files: ["Tests/A.swift": Self.threeTests], summary: Summary(total: 3, passed: 3))
+
+        let result = try sut.run(["Fake.xcresult", "Tests/*.swift", "Moved/*.swift"])
+
+        XCTAssertEqual(result.status, 2, "a renamed folder must not drop out of the expected count unseen")
+        XCTAssertTrue(result.standardError.contains("no tracked file matches Moved/*.swift"), "the glob is named: \(result.standardError)")
     }
 
     // MARK: - What counts as a test method
@@ -135,6 +157,29 @@ final class CountTestsEndToEndTests: XCTestCase {
         XCTAssertEqual(result.status, 2, "an unreadable summary is no measurement")
     }
 
+    func test_aSummaryWithoutTheCounts_isStatusTwo() throws {
+        let sut = try makeSUT(files: ["Tests/A.swift": Self.threeTests], summary: Summary(total: 3, passed: 3))
+        let summaries = ["{}", "{\"error\":\"no tests\"}", "[1, 2]", "{\"totalTestCount\":\"3\",\"passedTests\":3,\"failedTests\":0,\"skippedTests\":0}", "{\"totalTestCount\":3,\"passedTests\":true,\"failedTests\":0,\"skippedTests\":0}"]
+        for summary in summaries {
+            try summary.write(to: sut.fixture.directory.appendingPathComponent("summary.json"), atomically: true, encoding: .utf8)
+
+            let result = try sut.run(["Fake.xcresult", "Tests/*.swift"])
+
+            XCTAssertEqual(result.status, 2, "a summary that is not four whole numbers is no measurement: \(summary)")
+            XCTAssertTrue(result.standardError.contains("count-tests: the summary of the bundle"), "the summary is blamed, not the count: \(result.standardError)")
+        }
+    }
+
+    func test_aGitGrepThatSaysSomethingWhileItSucceeds_isStatusTwo() throws {
+        let sut = try makeSUT(files: ["Tests/A.swift": Self.threeTests], summary: Summary(total: 3, passed: 3))
+        try sut.fixture.writeShim(named: "git", body: "for argument in \"$@\"; do\n    if [ \"$argument\" = grep ]; then echo 'error: failed to stat Tests/B.swift' >&2; fi\ndone\nexec /usr/bin/git \"$@\"\n")
+
+        let result = try sut.run(["Fake.xcresult", "Tests/*.swift"])
+
+        XCTAssertEqual(result.status, 2, "a file the search could not read is a test class that was not counted")
+        XCTAssertTrue(result.standardError.contains("failed to stat Tests/B.swift"), "git's words are shown: \(result.standardError)")
+    }
+
     func test_aGitGrepThatFails_isStatusTwoNotAnExpectedCountOfZero() throws {
         let sut = try makeSUT(files: ["Tests/A.swift": Self.threeTests], summary: Summary(total: 0, passed: 0))
         try sut.fixture.writeShim(named: "git", body: "for argument in \"$@\"; do\n    if [ \"$argument\" = grep ]; then echo 'fatal: grep is out of order' >&2; exit 128; fi\ndone\nexec /usr/bin/git \"$@\"\n")
@@ -154,6 +199,7 @@ final class CountTestsEndToEndTests: XCTestCase {
         XCTAssertEqual(none.status, 2, "no arguments")
         XCTAssertTrue(none.standardError.contains("usage: devkit count-tests [--label <text>] <xcresult> <glob>..."), "the usage names the command: \(none.standardError)")
         XCTAssertEqual(noGlob.status, 2, "a bundle without a glob")
+        XCTAssertTrue(noGlob.standardError.contains("usage: devkit count-tests"), "the usage again: \(noGlob.standardError)")
     }
 
     func test_label_namesTheCountInEveryMessage() throws {

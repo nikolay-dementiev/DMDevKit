@@ -42,7 +42,7 @@ final class ExportCoverageEndToEndTests: XCTestCase {
         let result = try sut.run(["Fake.xcresult", "Lib", sut.output.path])
 
         XCTAssertEqual(result.status, 1, "a failing xccov is not treated as coverage")
-        XCTAssertTrue(result.standardError.contains("export-coverage: "), "the failure is reported: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("xccov: no coverage"), "the failure of xccov is reported: \(result.standardError)")
         XCTAssertFalse(FileManager.default.fileExists(atPath: sut.output.path), "no file is written")
     }
 
@@ -144,6 +144,14 @@ final class ExportCoverageCheckTests: XCTestCase {
 
     func test_keepingFilesOutsideTheSourceRoot_failsTheCheck() throws {
         try assertCheckFails("if source_root in path.parents and file", "if file", failing: "test_filters_tests_dependencies_and_other_targets")
+    }
+
+    func test_acceptingAFileWithoutArchiveLines_failsTheCheck() throws {
+        try assertCheckFails("        if not lines:\n", "        if False:\n", failing: "test_missing_archive_lines_fails")
+    }
+
+    func test_exportingAnotherTargetOfTheReport_failsTheCheck() throws {
+        try assertCheckFails("if entry[\"name\"].split(\".\")[0] != target:", "if False:", failing: "test_filters_tests_dependencies_and_other_targets")
     }
 
     func test_acceptingAnEmptyReport_failsTheCheck() throws {
