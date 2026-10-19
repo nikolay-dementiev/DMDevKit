@@ -104,6 +104,35 @@ final class CheckApiEndToEndTests: XCTestCase {
         XCTAssertEqual(result.status, 4, "the interface of that ref was not recorded: \(result.standardError)")
     }
 
+    // MARK: - Library evolution
+
+    func test_libraryEvolution_isOnlyEnabledByTheValueYes() throws {
+        let cases: [(setting: String, enabled: Bool, why: String)] = [
+            ("", false, "a missing key means no"),
+            ("LIBRARY_EVOLUTION=\"no\"\n", false, "no"),
+            ("LIBRARY_EVOLUTION=\"Yes\"\n", false, "any spelling but yes means no"),
+            ("LIBRARY_EVOLUTION=\"true\"\n", false, "any value but yes means no"),
+            ("LIBRARY_EVOLUTION=\"yes\"\n", true, "yes"),
+        ]
+        for item in cases {
+            let sut = try makeSUT(conf: "DEVKIT_CONF_VERSION=1\nMODULE=\"Fix\"\nSOURCE_DIR=\"Sources/Fix\"\nSWIFT_FLAGS=(-swift-version 6)\n" + item.setting)
+            let record = sut.fixture.directory.appendingPathComponent("swiftc-arguments")
+            // Records every call of xcrun and then runs the real one, so the compile still happens.
+            try sut.fixture.writeShim(named: "xcrun", body: "echo \"$*\" >> '\(record.path)'\nexec /usr/bin/xcrun \"$@\"\n")
+
+            let result = try sut.run(["--update"])
+
+            XCTAssertEqual(result.status, 0, "the module compiles (\(item.why)): \(result.standardError)")
+            let emission = try String(contentsOf: record, encoding: .utf8).split(separator: "\n").first { $0.contains("-emit-module-interface-path") }
+            XCTAssertNotNil(emission, "the call that emits the interface was recorded (\(item.why))")
+            XCTAssertEqual(
+                emission?.contains("-enable-library-evolution"),
+                item.enabled,
+                "library evolution is \(item.enabled ? "on" : "off") when \(item.why): \(emission ?? "no call")"
+            )
+        }
+    }
+
     // MARK: - Dependencies and preparation
 
     func test_dependenciesAreCompiledFirstAndPrepareRunsBeforeEverything() throws {
