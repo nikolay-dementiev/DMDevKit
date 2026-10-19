@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -57,7 +58,10 @@ def main():
     parser.add_argument("target")
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
-    root = Path(__file__).resolve().parent.parent
+    if not os.environ.get("DEVKIT_REPO_ROOT"):
+        print("export-coverage: run it as 'devkit export-coverage'", file=sys.stderr)
+        return 2
+    root = Path(os.environ["DEVKIT_REPO_ROOT"]).resolve()
     try:
         content = export(args.bundle, args.target, root)
         args.output.parent.mkdir(parents=True, exist_ok=True)
