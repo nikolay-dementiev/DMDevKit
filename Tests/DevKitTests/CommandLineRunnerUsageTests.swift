@@ -109,3 +109,26 @@ final class CommandTableTests: XCTestCase {
         XCTAssertNil(CommandTable.standard.command(named: "no-such-command"), "no free names")
     }
 }
+
+final class StandardCommandTableTests: XCTestCase {
+    func test_standardTable_hasTheFiveCommandsOfThisRelease() {
+        let names = CommandTable.standard.commands.map(\.name)
+
+        XCTAssertEqual(
+            Set(names),
+            ["prepare-simulator", "lint", "check-lint-contract", "check-lint-tool", "swiftlint-fetch"],
+            "every command of the README is in the table, and nothing else"
+        )
+        XCTAssertEqual(names.count, Set(names).count, "no name twice")
+    }
+
+    func test_everyStandardCommand_runsAScriptThatIsInTheResourceFolder() {
+        let folder = EndToEndFixture.resourceFolder(for: Self.self)
+
+        for command in CommandTable.standard.commands {
+            let script = folder.appendingPathComponent(command.scriptPath)
+
+            XCTAssertTrue(FileManager.default.fileExists(atPath: script.path), "'\(command.name)' names \(command.scriptPath), which must be in the bundle")
+        }
+    }
+}
