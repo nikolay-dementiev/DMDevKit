@@ -5,6 +5,10 @@ It is not a library for apps. Each of those repositories uses it through a neste
 and the dependencies of their consumers stay unchanged. The tooling is a command line tool, `devkit`, that runs the shared scripts
 against the repository it is started in.
 
+<p align="center">
+  <img src="./Documentation/DMDevKit-main.svg?raw=true" alt="DMDevKit: shared development and CI tooling. Three panels: CLI with a terminal, Scripts with stacked documents, and Simulator with a phone and power button. Shared tools for the DM libraries, built as a Swift CLI for macOS." style="max-height: 400px; aspect-ratio: 1536/1024; object-fit: scale-down;">
+</p>
+
 ## Commands
 
 Run from inside a repository that has a nested `Tools/Package.swift` depending on DMDevKit:
