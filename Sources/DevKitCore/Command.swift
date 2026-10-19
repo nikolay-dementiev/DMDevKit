@@ -53,5 +53,10 @@ public struct CommandTable: Sendable, Equatable {
             scriptPath: "Scripts/prepare-simulator.sh",
             summary: "Boot a simulator for a device type and OS version and print its UDID"
         ),
+        Command(
+            name: "swiftlint-fetch",
+            scriptPath: "Scripts/swiftlint-fetch.sh",
+            summary: "Fetch a SwiftLint version into .build/tools, checked against the checksum table, and print its path"
+        ),
     ])
 }
