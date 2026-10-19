@@ -20,6 +20,10 @@ let package = Package(
             dependencies: ["DevKitCore"],
             resources: [.copy("Resources")]
         ),
+        .testTarget(
+            name: "DevKitTests",
+            dependencies: ["DevKitCore", "devkit"]
+        ),
     ],
     swiftLanguageModes: [.v6]
 )
