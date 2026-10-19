@@ -50,11 +50,28 @@ shift
 ERRORS="$(mktemp "${TMPDIR:-/tmp}/count-tests.XXXXXX")"
 trap 'rm -f "$ERRORS"' EXIT
 
+# A glob that names no tracked file is a folder that was renamed or a mistake, not a count of 0 among the others.
+for GLOB in "$@"; do
+    if ! TRACKED="$(git -C "$ROOT" ls-files -- "$GLOB" 2> "$ERRORS")"; then
+        echo "$LABEL: the files of $GLOB could not be listed: $(tr '\n' ' ' < "$ERRORS")" >&2
+        exit 2
+    fi
+    if [ -z "$TRACKED" ]; then
+        echo "$LABEL: no tracked file matches $GLOB" >&2
+        exit 2
+    fi
+done
+
 PATTERN='^[[:space:]]*((@[[:alnum:]_]+(\([^)]*\))?|public|open|internal|final|override|nonisolated)[[:space:]]+)*func[[:space:]]+test[[:alnum:]_]*[[:space:]]*\(\)[[:space:]]*(async[[:space:]]*)?(throws[[:space:]]*)?(\{.*|//.*)?$'
 SEARCH_STATUS=0
 COUNTS="$(git -C "$ROOT" grep -hcE "$PATTERN" -- "$@" 2> "$ERRORS")" || SEARCH_STATUS=$?
 # Status 1 is a search that found no test method, which is a count of 0. Anything above is a search that failed.
 if [ "$SEARCH_STATUS" -gt 1 ]; then
+    echo "$LABEL: the test methods could not be counted: $(tr '\n' ' ' < "$ERRORS")" >&2
+    exit 2
+fi
+# A search that succeeded and still said something skipped a file it could not read: that test class is not counted.
+if [ -s "$ERRORS" ]; then
     echo "$LABEL: the test methods could not be counted: $(tr '\n' ' ' < "$ERRORS")" >&2
     exit 2
 fi
@@ -74,14 +91,15 @@ import sys
 expected, label = int(sys.argv[1]), sys.argv[2]
 try:
     summary = json.loads(sys.stdin.read())
-except ValueError as error:
-    print(f"{label}: the summary of the bundle is not JSON: {error}", file=sys.stderr)
-    sys.exit(2)
-if not isinstance(summary, dict):
-    print(f"{label}: the summary of the bundle is not an object", file=sys.stderr)
+except Exception as error:
+    print(f"{label}: the summary of the bundle is not JSON: {error!r}", file=sys.stderr)
     sys.exit(2)
 keys = ("totalTestCount", "passedTests", "failedTests", "skippedTests")
-actual = {key: summary.get(key) for key in keys}
+actual = {key: summary.get(key) if isinstance(summary, dict) else None for key in keys}
+# Whole numbers only: a missing key, a string or a boolean is a summary of another shape, which is no measurement.
+if any(type(value) is not int for value in actual.values()):
+    print(f"{label}: the summary of the bundle does not hold four whole numbers {keys}, got {actual}", file=sys.stderr)
+    sys.exit(2)
 if not (expected > 0 and actual["totalTestCount"] == expected and actual["passedTests"] == expected
         and actual["failedTests"] == 0 and actual["skippedTests"] == 0):
     print(f"{label}: Expected {expected} tests to run and pass, got {actual}", file=sys.stderr)
