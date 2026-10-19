@@ -11,6 +11,15 @@ public struct CommandLineRunner {
     private let directoryInspector: any DirectoryInspector
     private let output: any TextOutput
 
+    /// - Parameters:
+    ///   - table: the commands this run knows.
+    ///   - version: the line `--version` prints.
+    ///   - resourceFolder: the folder that holds the scripts of the table.
+    ///   - workingDirectory: where the repository is looked for.
+    ///   - launcher: starts the script.
+    ///   - repositoryLocator: finds the git top level of `workingDirectory`.
+    ///   - directoryInspector: checks that `resourceFolder` is there.
+    ///   - output: the text of `devkit` itself.
     public init(
         table: CommandTable,
         version: String,

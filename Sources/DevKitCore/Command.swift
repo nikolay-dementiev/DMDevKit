@@ -15,6 +15,10 @@ public struct Command: Sendable, Equatable {
     /// One line for the help text.
     public let summary: String
 
+    /// - Parameters:
+    ///   - name: the word after `devkit`.
+    ///   - scriptPath: the script, relative to the resource folder.
+    ///   - summary: one line for the help text.
     public init(name: String, scriptPath: String, summary: String) {
         self.name = name
         self.scriptPath = scriptPath
@@ -29,8 +33,10 @@ public struct Command: Sendable, Equatable {
 
 /// The commands `devkit` knows. A name that is not in the table is never turned into a path.
 public struct CommandTable: Sendable, Equatable {
+    /// In the order the help text lists them.
     public let commands: [Command]
 
+    /// - Parameter commands: the commands of the table; names are expected to be unique, the first one wins.
     public init(commands: [Command]) {
         self.commands = commands
     }

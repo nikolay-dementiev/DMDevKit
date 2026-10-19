@@ -7,8 +7,8 @@ public enum DevKitError: Error, Equatable {
     /// The child could not be started.
     case cannotStart(executable: String, reason: String)
 
-    /// One line for the user, without the `devkit:` prefix.
-    public var message: String {
+    // One line for the user, without the `devkit:` prefix.
+    var message: String {
         switch self {
         case .notInRepository(let directory):
             "\(directory) is not inside a git repository"
