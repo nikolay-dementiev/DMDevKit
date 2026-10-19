@@ -44,5 +44,6 @@ paths it needs from `DEVKIT_REPO_ROOT`, `DEVKIT_RESOURCES`, `DEVKIT_CONF` and `D
 
 ## Status
 
-In development, no release. The CI installs `shellcheck` and `actionlint` from Homebrew at whatever version Homebrew has;
+First release, 0.1.0, made for the pilot in DMAction. The scripts that the libraries still keep as copies (`check-api`, `check-release`,
+the coverage export and the test count) come in later releases. The CI installs `shellcheck` and `actionlint` from Homebrew at whatever version Homebrew has;
 the version is printed in the log and is not pinned.
