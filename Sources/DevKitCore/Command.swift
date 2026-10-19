@@ -53,5 +53,25 @@ public struct CommandTable: Sendable, Equatable {
             scriptPath: "Scripts/prepare-simulator.sh",
             summary: "Boot a simulator for a device type and OS version and print its UDID"
         ),
+        Command(
+            name: "check-lint-tool",
+            scriptPath: "Scripts/check-lint-tool.sh",
+            summary: "Prove that the SwiftLint helper stays whole when two runs overlap, with a fake archive and no network"
+        ),
+        Command(
+            name: "check-lint-contract",
+            scriptPath: "Scripts/check-lint-contract.sh",
+            summary: "Prove that the lint rules of the repository fire where the fixtures of Fixtures/Lint expect"
+        ),
+        Command(
+            name: "lint",
+            scriptPath: "Scripts/lint.sh",
+            summary: "Lint the repository with the SwiftLint its .swiftlint.yml pins; --analyze <log> adds the analyzer rules"
+        ),
+        Command(
+            name: "swiftlint-fetch",
+            scriptPath: "Scripts/swiftlint-fetch.sh",
+            summary: "Fetch a SwiftLint version into .build/tools, checked against the checksum table, and print its path"
+        ),
     ])
 }

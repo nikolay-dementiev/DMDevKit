@@ -55,6 +55,10 @@ jobs:
           grep -q 'version 3\.2' "$RUNNER_TEMP/bash-version.txt"
       - name: Build
         run: swift build -Xswiftc -warnings-as-errors
+      # The tests that run the real SwiftLint take its archive from .build/tools. The fetch goes through the helper of
+      # DMDevKit itself, so the checksum of its table is checked; it is the one command that puts the archive there.
+      - name: Fetch SwiftLint for the tests
+        run: swift run -Xswiftc -warnings-as-errors devkit swiftlint-fetch 0.65.1
       - name: Test
         run: swift test -Xswiftc -warnings-as-errors
 
@@ -72,7 +76,7 @@ jobs:
           brew install shellcheck
           shellcheck --version
       - name: Check every script
-        run: git ls-files -z '*.sh' | xargs -0 shellcheck
+        run: git ls-files -z '*.sh' | xargs -0 shellcheck -x
 
   actionlint:
     name: actionlint

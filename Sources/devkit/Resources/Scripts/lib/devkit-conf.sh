@@ -25,7 +25,7 @@
 _DEVKIT_CONF_SCALARS="MODULE SOURCE_DIR RULES FIXTURE_DIR LIBRARY_EVOLUTION PODSPEC FROZEN_POD_VERSION"
 _DEVKIT_CONF_ARRAYS="SWIFT_FLAGS DEPENDENCIES PREPARE"
 # Names of the function below and the shell's own, which a snapshot of the variables can differ in.
-_DEVKIT_CONF_INTERNAL=" conf name before after kind root0 res0 conf0 work0 _ OLDPWD PIPESTATUS LINENO RANDOM SECONDS BASH_COMMAND BASH_LINENO BASH_SOURCE FUNCNAME "
+_DEVKIT_CONF_INTERNAL=" conf name before after kind root0 res0 conf0 work0 _ OLDPWD PIPESTATUS LINENO RANDOM SECONDS FUNCNAME "
 
 devkit_conf_load() {
     # The loops below split on blanks whatever the caller set IFS to.

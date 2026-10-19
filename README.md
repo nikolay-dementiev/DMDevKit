@@ -21,6 +21,12 @@ swift run --package-path Tools devkit --help
 | Command | What it does |
 |---|---|
 | `prepare-simulator <device type name> <version> [iOS\|watchOS]` | Boots a simulator for the device type and OS version and prints its UDID on standard output; progress goes to standard error. |
+| `lint [--analyze <xcodebuild log>]` | Lints the repository with the SwiftLint version pinned in `.swiftlint.yml`, which must be a version in the checksum table of DMDevKit (else status 2); a warning fails the run. `--analyze` also runs the analyzer rules on the compiler invocations of the log of a build whose DerivedData is still on disk. |
+| `check-lint-contract` | Proves that the lint rules of the repository fire where the fixtures in `Fixtures/Lint` expect them and nowhere else. Needs `SOURCE_DIR` and `RULES` in `devkit.conf`; `FIXTURE_DIR` defaults to `Fixtures/Lint`. Needs `python3`. |
+| `check-lint-tool` | Proves, with a fake archive and no network, that the SwiftLint helper stays whole when two runs overlap and removes an archive with a wrong checksum. |
+| `swiftlint-fetch <version>` | Fetches a SwiftLint version into `.build/tools` of the repository, checked against the checksum table of DMDevKit, and prints the path of the tool. A version that is not in the table is status 2. |
+
+The SwiftLint commands need `curl` (only for the first fetch of a version), `unzip` and `shasum`. Every script clears the shell functions it inherits before it runs, so a function in the caller's environment cannot replace `shasum`, `unzip` or another tool the checksum check relies on.
 
 A command reads the settings of the repository from `devkit.conf` at the repository root (schema version 1) and gets the
 paths it needs from `DEVKIT_REPO_ROOT`, `DEVKIT_RESOURCES`, `DEVKIT_CONF` and `DEVKIT_WORK`.
