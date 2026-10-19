@@ -63,12 +63,15 @@ public struct FoundationProcessLauncher: ProcessLauncher {
         return LaunchResult(outcome: outcome, forwardedSignal: forwarded)
     }
 
-    /// The environment of `devkit` without what makes a shell run the caller's code before the first line of a script: `BASH_ENV` and `ENV`
-    /// name a file it reads at start, and a `BASH_FUNC_*` variable is an exported function, which could stand in for a tool or for the
-    /// `compgen` with which a script clears the functions it inherits. What the plan adds is never filtered.
+    private static let droppedNames: Set<String> = ["BASH_ENV", "ENV", "SHELLOPTS", "BASHOPTS", "PS4"]
+
+    /// The environment of `devkit` without what makes a shell run the caller's code before the first line of a script: `BASH_ENV` and
+    /// `ENV` name a file it reads at start, `SHELLOPTS`, `BASHOPTS` and `PS4` switch on tracing that expands a prompt, and a `BASH_FUNC_*`
+    /// variable is an exported function, which could stand in for a tool or for the `compgen` with which a script clears the functions
+    /// it inherits. What the plan adds is never filtered.
     private static func inheritedEnvironment() -> [String: String] {
         ProcessInfo.processInfo.environment.filter { name, _ in
-            !(name == "BASH_ENV" || name == "ENV" || name.hasPrefix("BASH_FUNC_"))
+            !(Self.droppedNames.contains(name) || name.hasPrefix("BASH_FUNC_"))
         }
     }
 

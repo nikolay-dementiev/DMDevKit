@@ -28,7 +28,7 @@ swift run --package-path Tools devkit --help
 | `check-lint-tool` | Proves, with a fake archive and no network, that the SwiftLint helper stays whole when two runs overlap and removes an archive with a wrong checksum. |
 | `swiftlint-fetch <version>` | Fetches a SwiftLint version into `.build/tools` of the repository, checked against the checksum table of DMDevKit, and prints the path of the tool. A version that is not in the table is status 2. |
 
-The SwiftLint commands need `curl` (only for the first fetch of a version), `unzip` and `shasum`. Every script clears the shell functions it inherits before it runs, and `devkit` does not pass `BASH_ENV`, `ENV` or an exported function (`BASH_FUNC_*`) to a script at all, so nothing in the caller's environment can replace `shasum`, `unzip`, `git` or another tool the scripts rely on. The caller is trusted otherwise: `PATH`, and the repository and its `devkit.conf`, are the caller's to choose.
+The SwiftLint commands need `curl` (only for the first fetch of a version), `unzip` and `shasum`. Every script clears the shell functions it inherits before it runs, and `devkit` does not pass `BASH_ENV`, `ENV`, `SHELLOPTS`, `BASHOPTS`, `PS4` or an exported function (`BASH_FUNC_*`) to a script at all, so these cannot make bash run the caller's code or replace `shasum`, `unzip`, `git` or another tool before the script starts. The caller is trusted otherwise: `PATH`, the other variables (`GIT_*` among them), and the repository and its `devkit.conf`, are the caller's to choose.
 
 A command reads the settings of the repository from `devkit.conf` at the repository root (schema version 1) and gets the
 paths it needs from `DEVKIT_REPO_ROOT`, `DEVKIT_RESOURCES`, `DEVKIT_CONF` and `DEVKIT_WORK`.
