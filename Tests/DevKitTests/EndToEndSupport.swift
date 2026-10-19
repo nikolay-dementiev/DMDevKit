@@ -14,7 +14,8 @@ final class EndToEndFixture {
     let shimDirectory: URL
 
     init() throws {
-        directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-e2e-\(UUID().uuidString)", isDirectory: true)
+        directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-e2e-\(UUID().uuidString)",
+            isDirectory: true)
         shimDirectory = directory.appendingPathComponent("shims", isDirectory: true)
         try FileManager.default.createDirectory(at: shimDirectory, withIntermediateDirectories: true)
     }
@@ -26,7 +27,8 @@ final class EndToEndFixture {
 
     /// The copy of the scripts the binary runs.
     static func resourceFolder(for testCase: AnyClass) -> URL {
-        Bundle(for: testCase).bundleURL.deletingLastPathComponent().appendingPathComponent("DMDevKit_devkit.bundle/Resources", isDirectory: true)
+        Bundle(for: testCase).bundleURL.deletingLastPathComponent().appendingPathComponent("DMDevKit_devkit.bundle/Resources",
+            isDirectory: true)
     }
 
     func makeRepository(named name: String = "repo") throws -> URL {
@@ -42,8 +44,8 @@ final class EndToEndFixture {
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
     }
 
-    /// The environment of the test run without what could aim a scratch repository at a real one (a git hook exports GIT_DIR) or change
-    /// how bash starts (BASH_ENV, exported functions); a test that wants one of them adds it back.
+    /// The environment of the test run without what could aim a scratch repository at a real one (a git hook exports GIT_DIR) or
+    /// change how bash starts (BASH_ENV, exported functions); a test that wants one of them adds it back.
     static var cleanEnvironment: [String: String] {
         var environment = ProcessInfo.processInfo.environment.filter { key, _ in
             !(key.hasPrefix("GIT_") || key.hasPrefix("DEVKIT_") || key.hasPrefix("SWIFTLINT_") || key.hasPrefix("BASH_FUNC_")
@@ -62,7 +64,8 @@ final class EndToEndFixture {
         return environment.merging(extra) { _, added in added }
     }
 
-    func capture(_ executable: String, _ arguments: [String], in workingDirectory: URL? = nil, environment: [String: String]? = nil, timeout: TimeInterval = 180) throws -> Captured {
+    func capture(_ executable: String, _ arguments: [String], in workingDirectory: URL? = nil,
+        environment: [String: String]? = nil, timeout: TimeInterval = 180) throws -> Captured {
         let outputURL = directory.appendingPathComponent("out-\(UUID().uuidString)")
         let errorURL = directory.appendingPathComponent("err-\(UUID().uuidString)")
         for url in [outputURL, errorURL] { FileManager.default.createFile(atPath: url.path, contents: nil) }
@@ -124,7 +127,8 @@ enum RealSwiftLint {
 
     struct MissingArchive: Error, CustomStringConvertible {
         let path: String
-        var description: String { "SwiftLint \(RealSwiftLint.version) is not in \(path); fetch it with: \(RealSwiftLint.fetchCommand)" }
+        var description: String { "SwiftLint \(RealSwiftLint.version) is not in \(path); fetch it with: " +
+            "\(RealSwiftLint.fetchCommand)" }
     }
 
     /// Copies the archive into `<repository>/.build/tools/swiftlint-<version>/`; the helper checks it and unpacks the tool.

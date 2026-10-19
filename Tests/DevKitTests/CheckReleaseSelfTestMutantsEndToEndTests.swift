@@ -1,9 +1,9 @@
 import XCTest
 import Foundation
 
-/// The self-test of `check-release` is the oracle for the decisions of the script. Each test here changes one decision in a copy of
-/// the script and expects the self-test of that copy to fail in the case that names that decision, so the self-test is shown to be
-/// able to fail. A control with a comment-only change shows that the copy runs like the original.
+/// The self-test of `check-release` is the oracle for the decisions of the script. Each test here changes one decision in a copy
+/// of the script and expects the self-test of that copy to fail in the case that names that decision, so the self-test is shown
+/// to be able to fail. A control with a comment-only change shows that the copy runs like the original.
 final class CheckReleaseSelfTestMutantsEndToEndTests: XCTestCase {
     func test_reportingAReleaseAsNotReadyWhenNoProblemWasFound_failsTheSelfTest() throws {
         try assertSelfTestFails(
@@ -17,7 +17,8 @@ final class CheckReleaseSelfTestMutantsEndToEndTests: XCTestCase {
         try assertSelfTestFails(
             "merge-base --is-ancestor \"refs/tags/$PREVIOUS^{commit}\" HEAD || ANCESTOR_STATUS=$?",
             "merge-base --is-ancestor \"refs/tags/$PREVIOUS^{commit}\" HEAD || true",
-            "a previous release on a side branch is not an ancestor", failingCase: "the previous release on a side branch is not an ancestor"
+            "a previous release on a side branch is not an ancestor", failingCase: "the previous release on a side branch is " +
+                "not an ancestor"
         )
     }
 
@@ -25,7 +26,8 @@ final class CheckReleaseSelfTestMutantsEndToEndTests: XCTestCase {
         try assertSelfTestFails(
             "'^(check-api-digester: )?[0-9]+ breaking changes? detected in '",
             "'breaking changes? detected in '",
-            "the digester is believed on a line that reports a break at its start only", failingCase: "a break line in the middle of a line is not a break"
+            "the digester is believed on a line that reports a break at its start only", failingCase: "a break line in the " +
+                "middle of a line is not a break"
         )
     }
 
@@ -33,7 +35,8 @@ final class CheckReleaseSelfTestMutantsEndToEndTests: XCTestCase {
         try assertSelfTestFails(
             "'^ {0,3}(#{1,6}|\\*\\*|__)[^[:alnum:]]*breaking([^[:alnum:]]|$)'",
             "'^### Breaking changes$'",
-            "a breaking heading is read at any level and with anything after the word", failingCase: "a breaking subsection with blanks after it still fails"
+            "a breaking heading is read at any level and with anything after the word", failingCase: "a breaking subsection " +
+                "with blanks after it still fails"
         )
     }
 
@@ -41,7 +44,8 @@ final class CheckReleaseSelfTestMutantsEndToEndTests: XCTestCase {
     func test_aCopyChangedOnlyByAComment_stillPassesTheSelfTest() throws {
         let sut = try makeSUT()
         let original = try String(contentsOf: sut.script, encoding: .utf8)
-        try sut.rewrite(original.replacingOccurrences(of: "set -euo pipefail\n", with: "set -euo pipefail\n# a comment that changes nothing\n"))
+        try sut.rewrite(original.replacingOccurrences(of: "set -euo pipefail\n",
+            with: "set -euo pipefail\n# a comment that changes nothing\n"))
 
         let result = try sut.runSelfTest()
 

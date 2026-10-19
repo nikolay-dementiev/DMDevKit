@@ -54,7 +54,8 @@ final class GitRepositoryLocatorTests: XCTestCase {
     // MARK: - Helpers
 
     private func makeSUT() throws -> (GitRepositoryLocator, URL) {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-git-\(UUID().uuidString)", isDirectory: true)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-git-\(UUID().uuidString)",
+            isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
         return (GitRepositoryLocator(), directory)
@@ -79,7 +80,8 @@ final class GitRepositoryLocatorTests: XCTestCase {
 
 final class FileManagerDirectoryInspectorTests: XCTestCase {
     func test_isDirectory_isTrueOnlyForAnExistingDirectory() throws {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-dir-\(UUID().uuidString)", isDirectory: true)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-dir-\(UUID().uuidString)",
+            isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
         let file = directory.appendingPathComponent("file")
@@ -94,7 +96,8 @@ final class FileManagerDirectoryInspectorTests: XCTestCase {
 
 final class FileHandleOutputTests: XCTestCase {
     func test_writeToAClosedHandle_doesNotCrashTheHost() throws {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-closed-\(UUID().uuidString)", isDirectory: true)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-closed-\(UUID().uuidString)",
+            isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
         let url = directory.appendingPathComponent("closed")
@@ -110,7 +113,8 @@ final class FileHandleOutputTests: XCTestCase {
     }
 
     func test_writeOutAndWriteError_gotoTheirOwnStreams() throws {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-out-\(UUID().uuidString)", isDirectory: true)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-out-\(UUID().uuidString)",
+            isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
         let outURL = directory.appendingPathComponent("out")
@@ -118,7 +122,8 @@ final class FileHandleOutputTests: XCTestCase {
         for url in [outURL, errURL] {
             XCTAssertTrue(FileManager.default.createFile(atPath: url.path, contents: nil), "the capture file exists")
         }
-        let sut = FileHandleOutput(standardOutput: try FileHandle(forWritingTo: outURL), standardError: try FileHandle(forWritingTo: errURL))
+        let sut = FileHandleOutput(standardOutput: try FileHandle(forWritingTo: outURL),
+            standardError: try FileHandle(forWritingTo: errURL))
 
         sut.writeOut("result\n")
         sut.writeError("problem\n")
