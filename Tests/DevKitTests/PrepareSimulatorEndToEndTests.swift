@@ -71,6 +71,7 @@ final class PrepareSimulatorEndToEndTests: XCTestCase {
         JSON
         exit 0
         fi
+        if [ "$1 $2" = "simctl list" ]; then echo "== listing for $3 =="; exit 0; fi
         if [ "$1 $2" = "simctl bootstatus" ]; then echo "Device already booted." ; exit 0; fi
         echo "unexpected xcrun call: $*" >&2; exit 64
         """)
