@@ -54,6 +54,11 @@ public struct CommandTable: Sendable, Equatable {
             summary: "Boot a simulator for a device type and OS version and print its UDID"
         ),
         Command(
+            name: "check-lint-tool",
+            scriptPath: "Scripts/check-lint-tool.sh",
+            summary: "Prove that the SwiftLint helper stays whole when two runs overlap, with a fake archive and no network"
+        ),
+        Command(
             name: "check-lint-contract",
             scriptPath: "Scripts/check-lint-contract.sh",
             summary: "Prove that the lint rules of the repository fire where the fixtures of Fixtures/Lint expect"
