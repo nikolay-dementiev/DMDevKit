@@ -35,6 +35,7 @@ final class FunctionClearingEndToEndTests: XCTestCase {
             let changed = original.replacingOccurrences(of: Self.clearingLine, with: ":")
             XCTAssertNotEqual(changed, original, "'\(command.name).sh' has the clearing line that this control removes")
             try changed.write(to: script, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
             var environment = sut.environment
             environment["DEVKIT_REPO_ROOT"] = EndToEndFixture.realPath(sut.repository)
             environment["DEVKIT_RESOURCES"] = moved.path
@@ -55,7 +56,7 @@ final class FunctionClearingEndToEndTests: XCTestCase {
         let devkit: URL
         let resources: URL
         let environment: [String: String]
-        var marker: URL { fixture.directory.appendingPathComponent("shasum.ran") }
+        var marker: URL { fixture.directory.appendingPathComponent("tool.ran") }
     }
 
     private func makeSUT(tool: String) throws -> SUT {
@@ -73,7 +74,7 @@ final class FunctionClearingEndToEndTests: XCTestCase {
         try LintContractEndToEndTests.config.write(to: repository.appendingPathComponent(".swiftlint.yml"), atomically: true, encoding: .utf8)
         try LintContractEndToEndTests.conf().write(to: repository.appendingPathComponent("devkit.conf"), atomically: true, encoding: .utf8)
         try RealSwiftLint.seed(into: repository)
-        let marker = directory.appendingPathComponent("shasum.ran")
+        let marker = directory.appendingPathComponent("tool.ran")
         // The function records that it ran and then calls the real tool, so a run that does use it still succeeds.
         let environment = fixture.shimmedEnvironment(adding: ["BASH_FUNC_\(tool)%%": "() { echo ran >> '\(marker.path)'; /usr/bin/\(tool) \"$@\"; }"])
         return SUT(

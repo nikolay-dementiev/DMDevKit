@@ -4,14 +4,17 @@ import Foundation
 final class CheckApiEndToEndTests: XCTestCase {
     // MARK: - The self-test
 
+    /// The `ok` lines of `--self-test`: the cases of the normalizer folder and the scenarios of `--since`. Change it with a case.
+    static let selfTestCaseCount = 97
+
     func test_selfTest_runsTheNormalizerCasesOfTheResourcesInARepositoryWithoutFixtures() throws {
-        let sut = try makeSUT(conf: nil, files: [:])
+        let sut = try makeSUT(conf: nil, files: [:], requiresSdk: false)
 
         let result = try sut.run(["--self-test"])
 
         let ok = result.standardOutput.split(separator: "\n").filter { $0.hasPrefix("check-api: ok ") }.count
         XCTAssertEqual(result.status, 0, "every case holds: \(result.standardError)")
-        XCTAssertEqual(ok, 97, "the 64 normalizer cases and the scenarios of --since, all reported: \(result.standardOutput.suffix(300))")
+        XCTAssertEqual(ok, Self.selfTestCaseCount, "the normalizer cases and the scenarios of --since, all reported: \(result.standardOutput.suffix(300))")
         XCTAssertFalse(result.standardOutput.contains("FAIL"), "no case failed")
         XCTAssertFalse(result.standardError.contains("FAIL"), "no case failed")
     }
@@ -174,7 +177,7 @@ final class CheckApiEndToEndTests: XCTestCase {
     }
 
     func test_anSdkThatCannotBeLocated_isStatusTwo() throws {
-        let sut = try makeSUT()
+        let sut = try makeSUT(requiresSdk: false)
         try sut.fixture.writeShim(named: "xcrun", body: "exit 1\n")
 
         let result = try sut.run(["--update"])
@@ -184,8 +187,8 @@ final class CheckApiEndToEndTests: XCTestCase {
     }
 
     func test_missingModuleOrSourceDirectory_areStatusTwoNamingTheKey() throws {
-        let withoutModule = try makeSUT(conf: "DEVKIT_CONF_VERSION=1\nSOURCE_DIR=\"Sources/Fix\"\n")
-        let withoutSource = try makeSUT(conf: "DEVKIT_CONF_VERSION=1\nMODULE=\"Fix\"\n")
+        let withoutModule = try makeSUT(conf: "DEVKIT_CONF_VERSION=1\nSOURCE_DIR=\"Sources/Fix\"\n", requiresSdk: false)
+        let withoutSource = try makeSUT(conf: "DEVKIT_CONF_VERSION=1\nMODULE=\"Fix\"\n", requiresSdk: false)
 
         let first = try withoutModule.run(["--update"])
         let second = try withoutSource.run(["--update"])
@@ -199,7 +202,7 @@ final class CheckApiEndToEndTests: XCTestCase {
     // MARK: - The path model
 
     func test_withoutDevkit_theScriptRefusesToGuessTheRepository() throws {
-        let sut = try makeSUT()
+        let sut = try makeSUT(requiresSdk: false)
 
         let result = try sut.fixture.capture("/bin/bash", [sut.resources.appendingPathComponent("Scripts/check-api.sh").path, "--self-test"], in: sut.repository)
 
@@ -269,29 +272,46 @@ final class CheckApiEndToEndTests: XCTestCase {
             try text.write(to: url, atomically: true, encoding: .utf8)
         }
 
-        func replaceInSource(_ old: String, with new: String, in path: String = "Sources/Fix/Fix.swift") throws {
+        func replaceInSource(_ old: String, with new: String, in path: String = "Sources/Fix/Fix.swift", file: StaticString = #filePath, line: UInt = #line) throws {
             let url = repository.appendingPathComponent(path)
             let text = try String(contentsOf: url, encoding: .utf8)
-            XCTAssertTrue(text.contains(old), "'\(old)' is in \(path), so the edit changes something")
+            guard text.contains(old) else {
+                XCTFail("'\(old)' is in \(path), so the edit changes something", file: file, line: line)
+                throw CocoaError(.fileWriteUnknown)
+            }
             try text.replacingOccurrences(of: old, with: new).write(to: url, atomically: true, encoding: .utf8)
         }
 
-        func git(_ arguments: [String]) throws {
+        func git(_ arguments: [String], file: StaticString = #filePath, line: UInt = #line) throws {
             let result = try fixture.capture(
                 "/usr/bin/env",
-                ["git", "-c", "user.name=probe", "-c", "user.email=probe@example.invalid", "-c", "commit.gpgsign=false"] + arguments,
+                [
+                    "git", "-c", "user.name=probe", "-c", "user.email=probe@example.invalid",
+                    "-c", "commit.gpgsign=false", "-c", "tag.gpgSign=false", "-c", "core.hooksPath=/dev/null",
+                ] + arguments,
                 in: repository
             )
-            XCTAssertEqual(result.status, 0, "git \(arguments) works: \(result.standardError)")
+            XCTAssertEqual(result.status, 0, "git \(arguments) works: \(result.standardError)", file: file, line: line)
         }
     }
 
-    private func makeSUT(conf: String? = CheckApiEndToEndTests.conf(), files: [String: String] = CheckApiEndToEndTests.files) throws -> SUT {
+    struct MissingSdk: Error, CustomStringConvertible {
+        let detail: String
+        var description: String { "the tests that compile need the iOS simulator SDK (xcrun --sdk iphonesimulator --show-sdk-path): \(detail)" }
+    }
+
+    private func makeSUT(
+        conf: String? = CheckApiEndToEndTests.conf(),
+        files: [String: String] = CheckApiEndToEndTests.files,
+        requiresSdk: Bool = true
+    ) throws -> SUT {
         let fixture = try EndToEndFixture()
         let directory = fixture.directory
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
-        let sdk = try fixture.capture("/usr/bin/xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"])
-        XCTAssertEqual(sdk.status, 0, "the tests need the iOS simulator SDK (xcrun --sdk iphonesimulator --show-sdk-path): \(sdk.standardError)")
+        if requiresSdk {
+            let sdk = try fixture.capture("/usr/bin/xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"])
+            guard sdk.status == 0 else { throw MissingSdk(detail: sdk.standardError) }
+        }
         let repository = try fixture.makeRepository()
         let sut = SUT(
             fixture: fixture,
