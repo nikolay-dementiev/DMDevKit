@@ -9,6 +9,7 @@ All notable changes to DMDevKit are written here. The format follows
 
 - The command `check-api` (compare, `--update`, `--since <ref>`, `--self-test`), taken from DMVariableBlurView with its normalizer cases. It reads `MODULE`, `SOURCE_DIR`, `SWIFT_FLAGS`, `LIBRARY_EVOLUTION`, `DEPENDENCIES` and `PREPARE` from `devkit.conf` and writes its work files to `.build/devkit/check-api`.
 - The command `check-release` (`<version>`, `--notes <version>`, `--self-test`), taken from DMVariableBlurView. It reads `FROZEN_POD_VERSION` and `MODULE` or `PODSPEC` from `devkit.conf` (`--notes` reads none), and compares the interface with the previous release through `check-api --since`.
+- The commands `export-coverage` (taken from the libraries, where the three copies are the same; the source root is the repository `devkit` gives) and `count-tests` (one reader of the test count for the inline steps of the three libraries' workflows, with the wide pattern for test methods). The check of the exporter is part of the tests of DMDevKit.
 
 ### Changed
 
