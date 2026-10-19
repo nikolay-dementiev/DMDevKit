@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    # Mondays. A new runner image or OS that breaks the package shows up within a week.
+    - cron: "23 5 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  # A new push to a pull request supersedes its older run. Runs on main are never cancelled.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: test (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The newest hosted image and Xcode.
+          - name: Xcode 26.6
+            runner: macos-26
+            xcode: "26.6"
+            swift: "6.3"
+          # The oldest toolchain the tools version of Package.swift promises: Swift 6.0. The libraries
+          # that use DMDevKit resolve it with their own toolchain, down to this one.
+          - name: Swift 6.0 floor
+            runner: macos-15
+            xcode: "16.0"
+            swift: "6.0"
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer
+      EXPECTED_SWIFT: ${{ matrix.swift }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check the compiler
+        run: |
+          swift --version | tee "$RUNNER_TEMP/swift-version.txt"
+          grep -qE "Apple Swift version ${EXPECTED_SWIFT}([. ]|$)" "$RUNNER_TEMP/swift-version.txt"
+      # The scripts are written for the Bash that macOS ships.
+      - name: Check that /bin/bash is 3.2
+        run: |
+          /bin/bash --version | head -1 | tee "$RUNNER_TEMP/bash-version.txt"
+          grep -q 'version 3\.2' "$RUNNER_TEMP/bash-version.txt"
+      - name: Build
+        run: swift build -Xswiftc -warnings-as-errors
+      - name: Test
+        run: swift test -Xswiftc -warnings-as-errors
+
+  shellcheck:
+    name: shellcheck
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Installed from Homebrew at whatever version it has: the version is printed, not pinned.
+      - name: Install shellcheck
+        run: |
+          brew install shellcheck
+          shellcheck --version
+      - name: Check every script
+        run: git ls-files -z '*.sh' | xargs -0 shellcheck
+
+  actionlint:
+    name: actionlint
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Installed from Homebrew at whatever version it has: the version is printed, not pinned.
+      - name: Install actionlint
+        run: |
+          brew install actionlint
+          actionlint -version
+      - name: Check the workflows
+        run: actionlint
