@@ -21,6 +21,16 @@ swift run --package-path Tools devkit --help
 A command reads the settings of the repository from `devkit.conf` at the repository root (schema version 1) and gets the
 paths it needs from `DEVKIT_REPO_ROOT`, `DEVKIT_RESOURCES`, `DEVKIT_CONF` and `DEVKIT_WORK`.
 
+## Exit statuses
+
+| Status | Meaning |
+|---|---|
+| 0 | The script succeeded, or `--help` or `--version` ran. |
+| the script's own | Any status the script exits with. The libraries' scripts use 1 for findings and 2 for usage and configuration errors, so `devkit` leaves both to them. |
+| 128 + n | A signal ended the script, or `devkit` forwarded the signal n (SIGINT is 130, SIGTERM is 143). |
+| 64 | A mistake of the caller, and no script ran: no command, an unknown command, or a working directory outside a git repository. |
+| 70 | `devkit` itself failed, and no script ran: the folder with the scripts is missing, git or the interpreter cannot start, or any other error of `devkit`. |
+
 ## Status
 
 In development, no release. The CI installs `shellcheck` and `actionlint` from Homebrew at whatever version Homebrew has;
