@@ -83,7 +83,8 @@ final class FoundationProcessLauncherTests: XCTestCase {
 
         _ = try sut.launcher.run(RunPlan(executable: "/bin/bash", arguments: [script], environment: [:]))
 
-        let expected = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).resolvingSymlinksInPath().path
+        // realpath keeps /private on macOS, as `pwd -P` does; resolvingSymlinksInPath drops it.
+        let expected = EndToEndFixture.realPath(URL(fileURLWithPath: FileManager.default.currentDirectoryPath))
         XCTAssertEqual(try sut.standardOutput(), expected + "\n", "the child does not change directory")
     }
 
