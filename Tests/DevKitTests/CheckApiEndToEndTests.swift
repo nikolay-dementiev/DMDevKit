@@ -14,7 +14,8 @@ final class CheckApiEndToEndTests: XCTestCase {
 
         let ok = result.standardOutput.split(separator: "\n").filter { $0.hasPrefix("check-api: ok ") }.count
         XCTAssertEqual(result.status, 0, "every case holds: \(result.standardError)")
-        XCTAssertEqual(ok, Self.selfTestCaseCount, "the normalizer cases and the scenarios of --since, all reported: \(result.standardOutput.suffix(300))")
+        XCTAssertEqual(ok, Self.selfTestCaseCount,
+            "the normalizer cases and the scenarios of --since, all reported: \(result.standardOutput.suffix(300))")
         XCTAssertFalse(result.standardOutput.contains("FAIL"), "no case failed")
         XCTAssertFalse(result.standardError.contains("FAIL"), "no case failed")
     }
@@ -28,7 +29,8 @@ final class CheckApiEndToEndTests: XCTestCase {
         let compare = try sut.run([])
 
         XCTAssertEqual(update.status, 0, "the baseline is written: \(update.standardError)")
-        XCTAssertTrue(update.standardOutput.contains("baseline updated: Fixtures/API/public-interface.txt"), "the message names the file: \(update.standardOutput)")
+        XCTAssertTrue(update.standardOutput.contains("baseline updated: Fixtures/API/public-interface.txt"),
+            "the message names the file: \(update.standardOutput)")
         let baseline = try String(contentsOf: sut.baseline, encoding: .utf8)
         XCTAssertTrue(baseline.contains("public struct Box"), "the public interface is in it: \(baseline)")
         XCTAssertFalse(baseline.contains("hidden"), "a private member is not API")
@@ -44,7 +46,8 @@ final class CheckApiEndToEndTests: XCTestCase {
         let result = try sut.run([])
 
         XCTAssertEqual(result.status, 1, "a different interface")
-        XCTAssertTrue(result.standardError.contains("the public interface differs from the baseline"), "the heading: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("the public interface differs from the baseline"),
+            "the heading: \(result.standardError)")
         XCTAssertTrue(result.standardError.contains("-  public func renameMe()"), "the removed line: \(result.standardError)")
         XCTAssertTrue(result.standardError.contains("+  public func renamedAgain()"), "the added line: \(result.standardError)")
     }
@@ -70,7 +73,8 @@ final class CheckApiEndToEndTests: XCTestCase {
 
         let result = try sut.run([])
 
-        XCTAssertEqual(result.status, 0, "private members are not API and the order of the files does not matter: \(result.standardError)")
+        XCTAssertEqual(result.status, 0,
+            "private members are not API and the order of the files does not matter: \(result.standardError)")
     }
 
     func test_since_classifiesTheDeltaAgainstAGitRef() throws {
@@ -112,7 +116,7 @@ final class CheckApiEndToEndTests: XCTestCase {
             ("LIBRARY_EVOLUTION=\"no\"\n", false, "no"),
             ("LIBRARY_EVOLUTION=\"Yes\"\n", false, "any spelling but yes means no"),
             ("LIBRARY_EVOLUTION=\"true\"\n", false, "any value but yes means no"),
-            ("LIBRARY_EVOLUTION=\"yes\"\n", true, "yes"),
+            ("LIBRARY_EVOLUTION=\"yes\"\n", true, "yes")
         ]
         for item in cases {
             let sut = try makeSUT(conf: "DEVKIT_CONF_VERSION=1\nMODULE=\"Fix\"\nSOURCE_DIR=\"Sources/Fix\"\nSWIFT_FLAGS=(-swift-version 6)\n" + item.setting)
@@ -123,7 +127,8 @@ final class CheckApiEndToEndTests: XCTestCase {
             let result = try sut.run(["--update"])
 
             XCTAssertEqual(result.status, 0, "the module compiles (\(item.why)): \(result.standardError)")
-            let emission = try String(contentsOf: record, encoding: .utf8).split(separator: "\n").first { $0.contains("-emit-module-interface-path") }
+            let emission = try String(contentsOf: record,
+                encoding: .utf8).split(separator: "\n").first { $0.contains("-emit-module-interface-path") }
             XCTAssertNotNil(emission, "the call that emits the interface was recorded (\(item.why))")
             XCTAssertEqual(
                 emission?.contains("-enable-library-evolution"),
@@ -144,15 +149,17 @@ final class CheckApiEndToEndTests: XCTestCase {
             """),
             files: Self.files.merging([
                 "Sources/Dep/Dep.swift": "public struct Part { public init() {} }\n",
-                "Sources/Fix/Uses.swift": "import Dep\npublic func use(_ part: Part) {}\n",
+                "Sources/Fix/Uses.swift": "import Dep\npublic func use(_ part: Part) {}\n"
             ]) { _, new in new }
         )
 
         let update = try sut.run(["--update"])
 
         XCTAssertEqual(update.status, 0, "the dependency compiles first and the module imports it: \(update.standardError)")
-        XCTAssertTrue(FileManager.default.fileExists(atPath: sut.repository.appendingPathComponent("prepared.marker").path), "PREPARE ran at the repository root")
-        XCTAssertTrue(try String(contentsOf: sut.baseline, encoding: .utf8).contains("public func use"), "the module that uses the dependency is in the baseline")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: sut.repository.appendingPathComponent("prepared.marker").path),
+            "PREPARE ran at the repository root")
+        XCTAssertTrue(try String(contentsOf: sut.baseline, encoding: .utf8).contains("public func use"),
+            "the module that uses the dependency is in the baseline")
     }
 
     // MARK: - The check could not be made (status 2)
@@ -166,7 +173,8 @@ final class CheckApiEndToEndTests: XCTestCase {
         let result = try sut.run(["--update"])
 
         XCTAssertEqual(result.status, 2, "a dependency that does not compile is not a different interface")
-        XCTAssertTrue(result.standardError.contains("the dependency Dep does not compile"), "the dependency is named: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("the dependency Dep does not compile"),
+            "the dependency is named: \(result.standardError)")
     }
 
     func test_aFailingPrepare_isStatusTwo() throws {
@@ -175,7 +183,8 @@ final class CheckApiEndToEndTests: XCTestCase {
         let result = try sut.run(["--update"])
 
         XCTAssertEqual(result.status, 2, "the preparation failed")
-        XCTAssertTrue(result.standardError.contains("the preparation (false) failed"), "the command is named: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("the preparation (false) failed"),
+            "the command is named: \(result.standardError)")
     }
 
     func test_noSwiftSource_isStatusTwo() throws {
@@ -184,7 +193,8 @@ final class CheckApiEndToEndTests: XCTestCase {
         let result = try sut.run(["--update"])
 
         XCTAssertEqual(result.status, 2, "an empty source list must not read as a different interface")
-        XCTAssertTrue(result.standardError.contains("no Swift source in Sources/Fix"), "the folder is named: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("no Swift source in Sources/Fix"),
+            "the folder is named: \(result.standardError)")
     }
 
     func test_aModuleWithoutPublicDeclarations_isStatusTwo() throws {
@@ -193,7 +203,8 @@ final class CheckApiEndToEndTests: XCTestCase {
         let result = try sut.run(["--update"])
 
         XCTAssertEqual(result.status, 2, "an empty interface is neither saved nor compared")
-        XCTAssertTrue(result.standardError.contains("the public interface is empty"), "the reason is named: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("the public interface is empty"),
+            "the reason is named: \(result.standardError)")
     }
 
     func test_compareWithoutABaseline_isStatusTwo() throws {
@@ -202,7 +213,8 @@ final class CheckApiEndToEndTests: XCTestCase {
         let result = try sut.run([])
 
         XCTAssertEqual(result.status, 2, "nothing to compare with")
-        XCTAssertTrue(result.standardError.contains("no baseline at Fixtures/API/public-interface.txt. Run with --update"), "the way out is named: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("no baseline at Fixtures/API/public-interface.txt. Run with --update"),
+            "the way out is named: \(result.standardError)")
     }
 
     func test_anSdkThatCannotBeLocated_isStatusTwo() throws {
@@ -212,7 +224,8 @@ final class CheckApiEndToEndTests: XCTestCase {
         let result = try sut.run(["--update"])
 
         XCTAssertEqual(result.status, 2, "a missing SDK is not a different interface")
-        XCTAssertTrue(result.standardError.contains("the iOS simulator SDK cannot be located"), "the reason is named: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("the iOS simulator SDK cannot be located"),
+            "the reason is named: \(result.standardError)")
     }
 
     func test_missingModuleOrSourceDirectory_areStatusTwoNamingTheKey() throws {
@@ -233,7 +246,8 @@ final class CheckApiEndToEndTests: XCTestCase {
     func test_withoutDevkit_theScriptRefusesToGuessTheRepository() throws {
         let sut = try makeSUT(requiresSdk: false)
 
-        let result = try sut.fixture.capture("/bin/bash", [sut.resources.appendingPathComponent("Scripts/check-api.sh").path, "--self-test"], in: sut.repository)
+        let result = try sut.fixture.capture("/bin/bash", [sut.resources.appendingPathComponent("Scripts/check-api.sh").path,
+            "--self-test"], in: sut.repository)
 
         XCTAssertEqual(result.status, 2, "no DEVKIT_REPO_ROOT, no run")
         XCTAssertTrue(result.standardError.contains("run it as 'devkit check-api'"), "the message names the command")
@@ -249,9 +263,11 @@ final class CheckApiEndToEndTests: XCTestCase {
         environment["DEVKIT_CONF"] = EndToEndFixture.realPath(sut.repository) + "/devkit.conf"
         environment["DEVKIT_WORK"] = EndToEndFixture.realPath(sut.repository) + "/.build/devkit"
 
-        let result = try sut.fixture.capture("/bin/bash", [moved.appendingPathComponent("Scripts/check-api.sh").path, "--update"], in: sut.repository, environment: environment)
+        let result = try sut.fixture.capture("/bin/bash", [moved.appendingPathComponent("Scripts/check-api.sh").path, "--update"],
+            in: sut.repository, environment: environment)
 
-        XCTAssertEqual(result.status, 0, "a script that looked at its own location would not find the repository: \(result.standardError)")
+        XCTAssertEqual(result.status, 0,
+            "a script that looked at its own location would not find the repository: \(result.standardError)")
         XCTAssertTrue(FileManager.default.fileExists(atPath: sut.baseline.path), "the baseline is in the repository it was given")
     }
 
@@ -261,8 +277,10 @@ final class CheckApiEndToEndTests: XCTestCase {
         _ = try sut.run(["--update"])
 
         let work = sut.repository.appendingPathComponent(".build/devkit/check-api", isDirectory: true)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: work.appendingPathComponent("Fix.swiftinterface").path), "the emitted interface is in DEVKIT_WORK/check-api")
-        XCTAssertFalse(FileManager.default.fileExists(atPath: sut.repository.appendingPathComponent(".build/check-api").path), "nothing is written to the old place")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: work.appendingPathComponent("Fix.swiftinterface").path),
+            "the emitted interface is in DEVKIT_WORK/check-api")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: sut.repository.appendingPathComponent(".build/check-api").path),
+            "nothing is written to the old place")
     }
 
     // MARK: - Helpers
@@ -277,11 +295,12 @@ final class CheckApiEndToEndTests: XCTestCase {
         }
         public enum Mode { case a, b }
 
-        """,
+        """
     ]
 
     static func conf(extra: String = "") -> String {
-        "DEVKIT_CONF_VERSION=1\nMODULE=\"Fix\"\nSOURCE_DIR=\"Sources/Fix\"\nSWIFT_FLAGS=(-swift-version 6)\nLIBRARY_EVOLUTION=\"yes\"\n" + extra
+        "DEVKIT_CONF_VERSION=1\nMODULE=\"Fix\"\nSOURCE_DIR=\"Sources/Fix\"\nSWIFT_FLAGS=(-swift-version " +
+            "6)\nLIBRARY_EVOLUTION=\"yes\"\n" + extra
     }
 
     struct SUT {
@@ -301,7 +320,8 @@ final class CheckApiEndToEndTests: XCTestCase {
             try text.write(to: url, atomically: true, encoding: .utf8)
         }
 
-        func replaceInSource(_ old: String, with new: String, in path: String = "Sources/Fix/Fix.swift", file: StaticString = #filePath, line: UInt = #line) throws {
+        func replaceInSource(_ old: String, with new: String, in path: String = "Sources/Fix/Fix.swift",
+            file: StaticString = #filePath, line: UInt = #line) throws {
             let url = repository.appendingPathComponent(path)
             let text = try String(contentsOf: url, encoding: .utf8)
             guard text.contains(old) else {
@@ -316,7 +336,7 @@ final class CheckApiEndToEndTests: XCTestCase {
                 "/usr/bin/env",
                 [
                     "git", "-c", "user.name=probe", "-c", "user.email=probe@example.invalid",
-                    "-c", "commit.gpgsign=false", "-c", "tag.gpgSign=false", "-c", "core.hooksPath=/dev/null",
+                    "-c", "commit.gpgsign=false", "-c", "tag.gpgSign=false", "-c", "core.hooksPath=/dev/null"
                 ] + arguments,
                 in: repository
             )
@@ -326,7 +346,8 @@ final class CheckApiEndToEndTests: XCTestCase {
 
     struct MissingSdk: Error, CustomStringConvertible {
         let detail: String
-        var description: String { "the tests that compile need the iOS simulator SDK (xcrun --sdk iphonesimulator --show-sdk-path): \(detail)" }
+        var description: String { "the tests that compile need the iOS simulator SDK (xcrun --sdk iphonesimulator " +
+            "--show-sdk-path): \(detail)" }
     }
 
     private func makeSUT(
