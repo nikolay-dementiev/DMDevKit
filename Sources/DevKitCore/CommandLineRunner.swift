@@ -44,7 +44,7 @@ public struct CommandLineRunner {
     public func run(arguments: [String]) -> Int32 {
         guard let first = arguments.first else {
             output.writeError(usage())
-            return 2
+            return DevKitStatus.usage
         }
         switch first {
         case "--help":
@@ -56,7 +56,7 @@ public struct CommandLineRunner {
         default:
             guard let command = table.command(named: first) else {
                 output.writeError("devkit: unknown command '\(first)'\n\(usage())")
-                return 2
+                return DevKitStatus.usage
             }
             return launch(command, arguments: Array(arguments.dropFirst()))
         }
@@ -72,10 +72,10 @@ public struct CommandLineRunner {
             return ExitMapping.status(for: try launcher.run(plan))
         } catch let error as DevKitError {
             output.writeError("devkit: \(error.message)\n")
-            return 2
+            return error.exitStatus
         } catch {
             output.writeError("devkit: \(error.localizedDescription)\n")
-            return 2
+            return DevKitStatus.software
         }
     }
 
