@@ -154,3 +154,35 @@ final class FoundationProcessLauncherTests: XCTestCase {
         return url.path
     }
 }
+
+final class FoundationProcessLauncherSignalTests: XCTestCase {
+    func test_signalReceivedWhileTheChildRuns_isForwardedAndReported() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-signal-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let ready = directory.appendingPathComponent("ready")
+        let marker = directory.appendingPathComponent("marker")
+        let script = directory.appendingPathComponent("trap.sh")
+        // The child answers SIGUSR1 with a marker and exit 0; without the signal it waits ten seconds and exits 5.
+        try """
+        trap 'echo got > "$MARKER"; exit 0' USR1
+        echo ready > "$READY"
+        for i in $(seq 1 100); do sleep 0.1; done
+        exit 5
+        """.write(to: script, atomically: true, encoding: .utf8)
+        let sut = FoundationProcessLauncher(forwardedSignals: [SIGUSR1])
+        DispatchQueue.global().async {
+            for _ in 0..<100 where !FileManager.default.fileExists(atPath: ready.path) { usleep(50_000) }
+            kill(getpid(), SIGUSR1)
+        }
+
+        let result = try sut.run(RunPlan(
+            executable: "/bin/bash",
+            arguments: [script.path],
+            environment: ["READY": ready.path, "MARKER": marker.path]
+        ))
+
+        XCTAssertEqual(result, LaunchResult(outcome: .exited(0), forwardedSignal: SIGUSR1), "the child saw the signal and the launcher says which one it forwarded")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: marker.path), "the child's trap ran")
+    }
+}
