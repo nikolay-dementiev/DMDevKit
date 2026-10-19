@@ -1,0 +1,45 @@
+swiftlint_version: 0.65.1
+
+included:
+  - Sources
+  - Tests
+
+opt_in_rules:
+  - force_unwrapping
+  - implicitly_unwrapped_optional
+  - missing_docs
+
+# Analyzer rules need the compiler invocations of a build. They run only with
+# `devkit lint --analyze <build log>`, on the log of `swift build --build-tests -v`.
+analyzer_rules:
+  - unused_import
+
+# By default the rule lets a few calls with a literal argument be force unwrapped, such as
+# URL(string: "https://example.com")!. DMDevKit states no exception, so the list is empty.
+force_unwrapping:
+  ignored_literal_argument_functions: []
+
+identifier_name:
+  min_length: 2
+  allowed_symbols: [_]
+
+file_length:
+  warning: 600
+  error: 1000
+
+type_body_length:
+  warning: 500
+  error: 1000
+
+function_parameter_count:
+  warning: 6
+  error: 10
+
+line_length:
+  warning: 130
+  error: 200
+
+# Every public symbol is documented. By default the rule skips the members of a type that
+# conforms to a protocol.
+missing_docs:
+  excludes_inherited_types: false
