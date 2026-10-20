@@ -45,10 +45,14 @@ final class EndToEndFixture {
     /// The environment of the test run without what could aim a scratch repository at a real one (a git hook exports GIT_DIR) or change
     /// how bash starts (BASH_ENV, exported functions); a test that wants one of them adds it back.
     static var cleanEnvironment: [String: String] {
-        ProcessInfo.processInfo.environment.filter { key, _ in
+        var environment = ProcessInfo.processInfo.environment.filter { key, _ in
             !(key.hasPrefix("GIT_") || key.hasPrefix("DEVKIT_") || key.hasPrefix("SWIFTLINT_") || key.hasPrefix("BASH_FUNC_")
                 || key == "BASH_ENV" || key == "ENV")
         }
+        // The git of a scratch repository must not read the global or the system configuration of the person who runs the tests.
+        environment["GIT_CONFIG_GLOBAL"] = "/dev/null"
+        environment["GIT_CONFIG_SYSTEM"] = "/dev/null"
+        return environment
     }
 
     /// Environment with the shim folder first on the PATH.

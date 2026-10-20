@@ -111,12 +111,12 @@ final class CommandTableTests: XCTestCase {
 }
 
 final class StandardCommandTableTests: XCTestCase {
-    func test_standardTable_hasTheFiveCommandsOfThisRelease() {
+    func test_standardTable_hasTheSixCommandsOfThisRelease() {
         let names = CommandTable.standard.commands.map(\.name)
 
         XCTAssertEqual(
             Set(names),
-            ["prepare-simulator", "lint", "check-lint-contract", "check-lint-tool", "swiftlint-fetch"],
+            ["prepare-simulator", "lint", "check-lint-contract", "check-lint-tool", "swiftlint-fetch", "check-api"],
             "every command of the README is in the table, and nothing else"
         )
         XCTAssertEqual(names.count, Set(names).count, "no name twice")
