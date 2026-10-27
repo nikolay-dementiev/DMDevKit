@@ -18,6 +18,7 @@ All notable changes to DMDevKit are written here. The format follows
 ### Fixed
 
 - `check-api` reads the module selectors that the interface printer of Swift 6.4 writes (`Swift::UInt`, `Type.Module::member`) as the dotted spelling of the baselines, so an unchanged interface is no longer reported as changed on Swift 6.4. The baselines stay as they are.
+- `devkit lint --analyze` without the path of a log prints `usage: devkit lint --analyze <xcodebuild log>` and exits with status 2, as the usage errors of the other commands do; it used to end with status 1 and a message of bash.
 
 ## [0.2.0] - 2026-10-27
 
