@@ -1,0 +1,12 @@
+# expect: different
+# The same lines as in module-selector-spelling.same.txt, but the type of the parameter changes: Swift::UInt against Swift.Int.
+--- A ---
+public struct First {
+  public func retry(_ retryCount: Swift::UInt) -> any Module::Action
+  public let action: Module::Holder.Module::ActionType
+}
+--- B ---
+public struct First {
+  public func retry(_ retryCount: Swift.Int) -> any Module.Action
+  public let action: Module.Holder.ActionType
+}
