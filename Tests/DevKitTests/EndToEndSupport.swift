@@ -1,6 +1,7 @@
 import XCTest
 import CryptoKit
 import Foundation
+import DevKitCore
 
 struct Captured: Equatable {
     let status: Int32
@@ -27,8 +28,8 @@ final class EndToEndFixture {
 
     /// The copy of the scripts the binary runs.
     static func resourceFolder(for testCase: AnyClass) -> URL {
-        Bundle(for: testCase).bundleURL.deletingLastPathComponent().appendingPathComponent("DMDevKit_devkit.bundle/Resources",
-            isDirectory: true)
+        ResourceFolderLocator(directoryInspector: FileManagerDirectoryInspector())
+            .folder(besideExecutable: devkitURL(for: testCase))
     }
 
     func makeRepository(named name: String = "repo") throws -> URL {
@@ -44,12 +45,13 @@ final class EndToEndFixture {
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
     }
 
-    /// The environment of the test run without what could aim a scratch repository at a real one (a git hook exports GIT_DIR) or
-    /// change how bash starts (BASH_ENV, exported functions); a test that wants one of them adds it back.
+    /// The environment of the test run without what could aim a scratch repository at a real one (a git hook exports GIT_DIR),
+    /// change how bash starts (BASH_ENV, exported functions) or make a script behave as on a runner (GITHUB_ACTIONS, which the
+    /// hosted runner exports and a developer's machine does not); a test that wants one of them adds it back.
     static var cleanEnvironment: [String: String] {
         var environment = ProcessInfo.processInfo.environment.filter { key, _ in
             !(key.hasPrefix("GIT_") || key.hasPrefix("DEVKIT_") || key.hasPrefix("SWIFTLINT_") || key.hasPrefix("BASH_FUNC_")
-                || key == "BASH_ENV" || key == "ENV")
+                || key == "BASH_ENV" || key == "ENV" || key == "GITHUB_ACTIONS")
         }
         // The git of a scratch repository must not read the global or the system configuration of the person who runs the tests.
         environment["GIT_CONFIG_GLOBAL"] = "/dev/null"
