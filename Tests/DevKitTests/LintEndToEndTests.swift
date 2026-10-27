@@ -109,6 +109,16 @@ final class LintEndToEndTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: sut.curlLog.path), "nothing was fetched")
     }
 
+    func test_analyzeWithAnEmptyLogPath_isAUsageErrorToo() throws {
+        let sut = try makeSUT(seed: false)
+
+        let result = try sut.run(["lint", "--analyze", ""])
+
+        XCTAssertEqual(result.status, 2, "an empty path names no log, as a missing one does")
+        XCTAssertTrue(result.standardError.contains("usage: devkit lint --analyze <xcodebuild log>"),
+            "the usage line is printed: \(result.standardError)")
+    }
+
     func test_analyzeWithAnUnreadableLog_passesSwiftLintsStatusThrough() throws {
         let sut = try makeSUT()
 
