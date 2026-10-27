@@ -5,6 +5,14 @@ All notable changes to DMDevKit are written here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The command `check-release` (`<version>`, `--notes <version>`, `--self-test`), taken from DMVariableBlurView. It reads `FROZEN_POD_VERSION` and `MODULE` or `PODSPEC` from `devkit.conf` (`--notes` reads none), and compares the interface with the previous release through `check-api --since`.
+
+### Changed
+
+- `devkit` no longer passes `BASH_ENV`, `ENV`, `SHELLOPTS`, `BASHOPTS`, `PS4` or an exported function (`BASH_FUNC_*`) of its own environment to a script. An exported `compgen` could defeat the line with which a script clears the functions it inherits.
+
 ## [0.2.0] - 2026-10-27
 
 The second release. It is made so that the DMAction pilot can pin a version that runs on Swift 6.4.

@@ -59,6 +59,11 @@ public struct CommandTable: Sendable, Equatable {
             summary: "Compare the public interface of the library with its committed baseline; --update, --since <ref>, --self-test"
         ),
         Command(
+            name: "check-release",
+            scriptPath: "Scripts/check-release.sh",
+            summary: "Check a release version against the changelog, the frozen podspec and the interface since the previous release; --notes <version>, --self-test"
+        ),
+        Command(
             name: "check-lint-tool",
             scriptPath: "Scripts/check-lint-tool.sh",
             summary: "Prove that the SwiftLint helper stays whole when two runs overlap, with a fake archive and no network"

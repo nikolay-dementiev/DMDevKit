@@ -41,7 +41,7 @@ public struct FoundationProcessLauncher: ProcessLauncher {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: plan.executable)
         process.arguments = plan.arguments
-        process.environment = ProcessInfo.processInfo.environment.merging(plan.environment) { _, added in added }
+        process.environment = Self.inheritedEnvironment().merging(plan.environment) { _, added in added }
         process.standardInput = standardInput
         process.standardOutput = standardOutput
         process.standardError = standardError
@@ -61,6 +61,18 @@ public struct FoundationProcessLauncher: ProcessLauncher {
             ? .signaled(process.terminationStatus)
             : .exited(process.terminationStatus)
         return LaunchResult(outcome: outcome, forwardedSignal: forwarded)
+    }
+
+    private static let droppedNames: Set<String> = ["BASH_ENV", "ENV", "SHELLOPTS", "BASHOPTS", "PS4"]
+
+    /// The environment of `devkit` without what makes a shell run the caller's code before the first line of a script: `BASH_ENV` and
+    /// `ENV` name a file it reads at start, `SHELLOPTS`, `BASHOPTS` and `PS4` switch on tracing that expands a prompt, and a `BASH_FUNC_*`
+    /// variable is an exported function, which could stand in for a tool or for the `compgen` with which a script clears the functions
+    /// it inherits. What the plan adds is never filtered.
+    private static func inheritedEnvironment() -> [String: String] {
+        ProcessInfo.processInfo.environment.filter { name, _ in
+            !(Self.droppedNames.contains(name) || name.hasPrefix("BASH_FUNC_"))
+        }
     }
 
     /// What the signal handlers and `run` share. Only the pid, the flag and the number cross threads, under a lock.

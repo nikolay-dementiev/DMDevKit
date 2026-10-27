@@ -11,6 +11,7 @@ final class FunctionClearingEndToEndTests: XCTestCase {
         ("check-lint-tool", ["check-lint-tool"], "shasum"),
         ("swiftlint-fetch", ["swiftlint-fetch", RealSwiftLint.version], "shasum"),
         ("check-api", ["check-api", "--self-test"], "git"),
+        ("check-release", ["check-release", "--notes", "1.1.0"], "awk"),
     ]
     private static let clearingLine = "while IFS= read -r FUNCTION; do unset -f \"$FUNCTION\"; done < <(compgen -A function)"
 
@@ -48,6 +49,32 @@ final class FunctionClearingEndToEndTests: XCTestCase {
         }
     }
 
+    /// The clearing line asks `compgen` for the functions to remove, so an exported `compgen` that lists none defeats it. The launcher
+    /// does not hand exported functions to the scripts at all; this is why it matters.
+    func test_exportedCompgenFunction_doesNotLetAToolFunctionRunThroughDevkit() throws {
+        for command in Self.commands {
+            let sut = try makeSUT(tool: command.tool, alsoFunctions: ["compgen": "() { :; }"])
+
+            _ = try sut.fixture.capture(sut.devkit.path, command.arguments, in: sut.repository, environment: sut.environment)
+
+            XCTAssertFalse(FileManager.default.fileExists(atPath: sut.marker.path), "'\(command.name)' ran a \(command.tool) function although the caller exported a compgen that lists none")
+        }
+    }
+
+    func test_exportedCompgenFunction_defeatsTheClearingLineOfAScriptThatDevkitDidNotStart() throws {
+        let sut = try makeSUT(tool: "shasum", alsoFunctions: ["compgen": "() { :; }"])
+        var environment = sut.environment
+        let root = EndToEndFixture.realPath(sut.repository)
+        environment["DEVKIT_REPO_ROOT"] = root
+        environment["DEVKIT_RESOURCES"] = sut.resources.path
+        environment["DEVKIT_CONF"] = root + "/devkit.conf"
+        environment["DEVKIT_WORK"] = root + "/.build/devkit"
+
+        _ = try sut.fixture.capture("/bin/bash", [sut.resources.appendingPathComponent("Scripts/check-lint-tool.sh").path], in: sut.repository, environment: environment)
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: sut.marker.path), "positive control: started by hand, the script runs the caller's shasum, so the test above can fail")
+    }
+
     // MARK: - Helpers
 
     struct SUT {
@@ -59,7 +86,7 @@ final class FunctionClearingEndToEndTests: XCTestCase {
         var marker: URL { fixture.directory.appendingPathComponent("tool.ran") }
     }
 
-    private func makeSUT(tool: String) throws -> SUT {
+    private func makeSUT(tool: String, alsoFunctions: [String: String] = [:]) throws -> SUT {
         let fixture = try EndToEndFixture()
         let directory = fixture.directory
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
@@ -71,12 +98,15 @@ final class FunctionClearingEndToEndTests: XCTestCase {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try text.write(to: url, atomically: true, encoding: .utf8)
         }
+        try "## [1.1.0] - 2026-10-03\n\n- a change\n".write(to: repository.appendingPathComponent("CHANGELOG.md"), atomically: true, encoding: .utf8)
         try LintContractEndToEndTests.config.write(to: repository.appendingPathComponent(".swiftlint.yml"), atomically: true, encoding: .utf8)
         try LintContractEndToEndTests.conf().write(to: repository.appendingPathComponent("devkit.conf"), atomically: true, encoding: .utf8)
         try RealSwiftLint.seed(into: repository)
         let marker = directory.appendingPathComponent("tool.ran")
         // The function records that it ran and then calls the real tool, so a run that does use it still succeeds.
-        let environment = fixture.shimmedEnvironment(adding: ["BASH_FUNC_\(tool)%%": "() { echo ran >> '\(marker.path)'; /usr/bin/\(tool) \"$@\"; }"])
+        var exported = ["BASH_FUNC_\(tool)%%": "() { echo ran >> '\(marker.path)'; /usr/bin/\(tool) \"$@\"; }"]
+        for (name, body) in alsoFunctions { exported["BASH_FUNC_\(name)%%"] = body }
+        let environment = fixture.shimmedEnvironment(adding: exported)
         return SUT(
             fixture: fixture,
             repository: repository,

@@ -77,6 +77,39 @@ final class FoundationProcessLauncherTests: XCTestCase {
         XCTAssertEqual(try sut.standardOutput(), "added\ninherited\n", "the added variable and the inherited PATH are both there")
     }
 
+    func test_inheritedShellStartupHooks_areNotPassedToTheChild() throws {
+        let sut = try makeSUT()
+        let hooks = ["BASH_ENV": "/nonexistent/startup", "ENV": "/nonexistent/startup", "BASH_FUNC_shasum%%": "() { echo fake; }", "DEVKIT_TEST_KEPT": "kept",
+                     "SHELLOPTS": "xtrace", "BASHOPTS": "extdebug", "PS4": "$(touch /nonexistent/x)"]
+        let previous = hooks.keys.reduce(into: [String: String]()) { $0[$1] = ProcessInfo.processInfo.environment[$1] }
+        for (name, value) in hooks { setenv(name, value, 1) }
+        addTeardownBlock {
+            for name in hooks.keys {
+                if let old = previous[name] { setenv(name, old, 1) } else { unsetenv(name) }
+            }
+        }
+
+        _ = try sut.launcher.run(RunPlan(executable: "/usr/bin/env", arguments: [], environment: [:]))
+
+        let names = try sut.standardOutput().split(separator: "\n").compactMap { $0.split(separator: "=", maxSplits: 1).first.map(String.init) }
+        XCTAssertFalse(names.contains("BASH_ENV"), "a file bash would run at start is not inherited: \(names)")
+        XCTAssertFalse(names.contains("ENV"), "the startup file of other shells is not inherited: \(names)")
+        XCTAssertFalse(names.contains { $0.hasPrefix("BASH_FUNC_") }, "an exported function is not inherited: \(names)")
+        XCTAssertFalse(names.contains("SHELLOPTS") || names.contains("BASHOPTS") || names.contains("PS4"), "options that make bash trace or expand a prompt are not inherited: \(names)")
+        XCTAssertTrue(names.contains("DEVKIT_TEST_KEPT"), "an ordinary variable still is: \(names)")
+        XCTAssertTrue(names.contains("PATH"), "so is the PATH: \(names)")
+    }
+
+    func test_environmentOfThePlan_isNeverFiltered() throws {
+        let sut = try makeSUT()
+        let script = try makeScript("echo \"${BASH_ENV-unset}\"")
+
+        _ = try sut.launcher.run(RunPlan(executable: "/bin/bash", arguments: ["--noprofile", script], environment: ["BASH_ENV": "/nonexistent/from-the-plan"]))
+
+        let printed = try sut.standardOutput()
+        XCTAssertTrue(printed.hasPrefix("/nonexistent/from-the-plan"), "what devkit itself adds reaches the child: \(printed)")
+    }
+
     func test_workingDirectory_isTheCallers() throws {
         let sut = try makeSUT()
         let script = try makeScript("pwd -P")
