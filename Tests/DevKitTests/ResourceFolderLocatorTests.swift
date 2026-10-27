@@ -2,8 +2,8 @@ import XCTest
 import Foundation
 import DevKitCore
 
-/// The build system decides where the scripts land next to the executable: the native one of SwiftPM copies the folder into the bundle,
-/// the Swift Build system of Swift 6.4 wraps the bundle in the macOS layout.
+/// The build system decides where the scripts land next to the executable: the native one of SwiftPM copies the folder into the
+/// bundle, the Swift Build system of Swift 6.4 wraps the bundle in the macOS layout.
 final class ResourceFolderLocatorTests: XCTestCase {
     private static let nativeFolder = "/opt/build/debug/DMDevKit_devkit.bundle/Resources"
     private static let swiftBuildFolder = "/opt/build/debug/DMDevKit_devkit.bundle/Contents/Resources/Resources"
