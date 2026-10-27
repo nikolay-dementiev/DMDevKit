@@ -97,13 +97,16 @@ final class LintEndToEndTests: XCTestCase {
             "the checksum check ran and refused the archive: \(result.standardError)")
     }
 
-    func test_analyzeWithoutALog_isStatusOneNamingTheMissingArgument() throws {
-        let sut = try makeSUT()
+    func test_analyzeWithoutALog_isAUsageErrorBeforeAnyFetch() throws {
+        let sut = try makeSUT(seed: false)
 
         let result = try sut.run(["lint", "--analyze"])
 
-        XCTAssertEqual(result.status, 1, "bash's error for a missing ${2:?} ends the command substitution")
-        XCTAssertTrue(result.standardError.contains("give the path of an xcodebuild log"), "the message says what is missing")
+        XCTAssertEqual(result.status, 2, "a missing log is a mistake of the caller, status 2 as for any other usage error")
+        XCTAssertTrue(result.standardError.contains("usage: devkit lint --analyze <xcodebuild log>"),
+            "the usage line names the option and its argument: \(result.standardError)")
+        XCTAssertFalse(result.standardError.contains("lint.sh: line"), "nothing comes from bash: \(result.standardError)")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: sut.curlLog.path), "nothing was fetched")
     }
 
     func test_analyzeWithAnUnreadableLog_passesSwiftLintsStatusThrough() throws {
