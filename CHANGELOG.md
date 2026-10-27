@@ -5,6 +5,11 @@ All notable changes to DMDevKit are written here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-27
+
+The third release. It has every command that the three libraries still keep as a copy, so that they can move their remaining scripts to it, and it
+runs on Swift 6.4.
+
 ### Added
 
 - The command `check-release` (`<version>`, `--notes <version>`, `--self-test`), taken from DMVariableBlurView. It reads `FROZEN_POD_VERSION` and `MODULE` or `PODSPEC` from `devkit.conf` (`--notes` reads none), and compares the interface with the previous release through `check-api --since`.
