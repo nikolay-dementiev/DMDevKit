@@ -4,28 +4,30 @@ import Foundation
 /// Every command that sources the SwiftLint helper clears the shell functions it inherits before anything runs, so that a function
 /// in the caller's environment cannot stand in for `shasum` or another tool the checksum check relies on.
 final class FunctionClearingEndToEndTests: XCTestCase {
-    private static let commands: [(name: String, arguments: [String])] = [
-        ("lint", ["lint"]),
-        ("check-lint-contract", ["check-lint-contract"]),
-        ("check-lint-tool", ["check-lint-tool"]),
-        ("swiftlint-fetch", ["swiftlint-fetch", RealSwiftLint.version]),
+    /// `tool` is a program the command surely runs: the function of that name must never run.
+    private static let commands: [(name: String, arguments: [String], tool: String)] = [
+        ("lint", ["lint"], "shasum"),
+        ("check-lint-contract", ["check-lint-contract"], "shasum"),
+        ("check-lint-tool", ["check-lint-tool"], "shasum"),
+        ("swiftlint-fetch", ["swiftlint-fetch", RealSwiftLint.version], "shasum"),
+        ("check-api", ["check-api", "--self-test"], "git"),
     ]
     private static let clearingLine = "while IFS= read -r FUNCTION; do unset -f \"$FUNCTION\"; done < <(compgen -A function)"
 
-    func test_anExportedShasum_isNeverRunByAnyCommandThatSourcesTheHelper() throws {
+    func test_anExportedFunctionOfATool_isNeverRunByAnyCommandThatNeedsOne() throws {
         for command in Self.commands {
-            let sut = try makeSUT()
+            let sut = try makeSUT(tool: command.tool)
 
             let result = try sut.fixture.capture(sut.devkit.path, command.arguments, in: sut.repository, environment: sut.environment)
 
             XCTAssertEqual(result.status, 0, "'\(command.name)' works on a clean scratch repository: \(result.standardError)")
-            XCTAssertFalse(FileManager.default.fileExists(atPath: sut.marker.path), "'\(command.name)' ran a shasum function from the caller's environment")
+            XCTAssertFalse(FileManager.default.fileExists(atPath: sut.marker.path), "'\(command.name)' ran a \(command.tool) function from the caller's environment")
         }
     }
 
-    func test_exportedShasum_isRunByACopyOfEachScriptWithoutTheClearingLine() throws {
+    func test_exportedFunctionOfATool_isRunByACopyOfEachScriptWithoutTheClearingLine() throws {
         for command in Self.commands {
-            let sut = try makeSUT()
+            let sut = try makeSUT(tool: command.tool)
             let moved = sut.fixture.directory.appendingPathComponent("moved", isDirectory: true)
             try FileManager.default.copyItem(at: sut.resources, to: moved)
             let script = moved.appendingPathComponent("Scripts/\(command.name).sh")
@@ -33,14 +35,16 @@ final class FunctionClearingEndToEndTests: XCTestCase {
             let changed = original.replacingOccurrences(of: Self.clearingLine, with: ":")
             XCTAssertNotEqual(changed, original, "'\(command.name).sh' has the clearing line that this control removes")
             try changed.write(to: script, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
             var environment = sut.environment
             environment["DEVKIT_REPO_ROOT"] = EndToEndFixture.realPath(sut.repository)
             environment["DEVKIT_RESOURCES"] = moved.path
             environment["DEVKIT_CONF"] = EndToEndFixture.realPath(sut.repository) + "/devkit.conf"
+            environment["DEVKIT_WORK"] = EndToEndFixture.realPath(sut.repository) + "/.build/devkit"
 
             _ = try sut.fixture.capture("/bin/bash", [script.path] + Array(command.arguments.dropFirst()), in: sut.repository, environment: environment)
 
-            XCTAssertTrue(FileManager.default.fileExists(atPath: sut.marker.path), "positive control: without the line '\(command.name)' does run the caller's shasum, so the test above can fail")
+            XCTAssertTrue(FileManager.default.fileExists(atPath: sut.marker.path), "positive control: without the line '\(command.name)' does run the caller's \(command.tool), so the test above can fail")
         }
     }
 
@@ -52,10 +56,10 @@ final class FunctionClearingEndToEndTests: XCTestCase {
         let devkit: URL
         let resources: URL
         let environment: [String: String]
-        var marker: URL { fixture.directory.appendingPathComponent("shasum.ran") }
+        var marker: URL { fixture.directory.appendingPathComponent("tool.ran") }
     }
 
-    private func makeSUT() throws -> SUT {
+    private func makeSUT(tool: String) throws -> SUT {
         let fixture = try EndToEndFixture()
         let directory = fixture.directory
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
@@ -70,9 +74,9 @@ final class FunctionClearingEndToEndTests: XCTestCase {
         try LintContractEndToEndTests.config.write(to: repository.appendingPathComponent(".swiftlint.yml"), atomically: true, encoding: .utf8)
         try LintContractEndToEndTests.conf().write(to: repository.appendingPathComponent("devkit.conf"), atomically: true, encoding: .utf8)
         try RealSwiftLint.seed(into: repository)
-        let marker = directory.appendingPathComponent("shasum.ran")
+        let marker = directory.appendingPathComponent("tool.ran")
         // The function records that it ran and then calls the real tool, so a run that does use it still succeeds.
-        let environment = fixture.shimmedEnvironment(adding: ["BASH_FUNC_shasum%%": "() { echo ran >> '\(marker.path)'; /usr/bin/shasum \"$@\"; }"])
+        let environment = fixture.shimmedEnvironment(adding: ["BASH_FUNC_\(tool)%%": "() { echo ran >> '\(marker.path)'; /usr/bin/\(tool) \"$@\"; }"])
         return SUT(
             fixture: fixture,
             repository: repository,

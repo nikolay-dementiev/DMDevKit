@@ -5,6 +5,10 @@ All notable changes to DMDevKit are written here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The command `check-api` (compare, `--update`, `--since <ref>`, `--self-test`), taken from DMVariableBlurView with its normalizer cases. It reads `MODULE`, `SOURCE_DIR`, `SWIFT_FLAGS`, `LIBRARY_EVOLUTION`, `DEPENDENCIES` and `PREPARE` from `devkit.conf` and writes its work files to `.build/devkit/check-api`.
+
 ## [0.1.0] - 2026-10-19
 
 The first release. It is made for the pilot in DMAction, which pins this exact version; the scripts that the libraries still keep
