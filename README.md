@@ -45,7 +45,8 @@ paths it needs from `DEVKIT_REPO_ROOT`, `DEVKIT_RESOURCES`, `DEVKIT_CONF` and `D
 
 ## Status
 
-Release 0.1.0 was made for the pilot in DMAction and has the commands `prepare-simulator`, `lint`, `check-lint-contract`, `check-lint-tool` and
-`swiftlint-fetch`. `check-api` and `check-release` are on `main` and not yet in a release. The scripts that the libraries still keep as copies (the coverage
-export and the test count) come in later releases. The CI installs `shellcheck` and `actionlint` from Homebrew at whatever version Homebrew has;
+Release 0.2.0 has the commands `prepare-simulator`, `lint`, `check-lint-contract`, `check-lint-tool`, `swiftlint-fetch` and `check-api`, and it runs on
+Swift 6.4 (0.1.0 did not: it could not find its scripts there). `check-release` is on `main` and not yet in a release. The scripts that the libraries still
+keep as copies (the coverage export and the test count) come in 0.3.0, with the lint of DMDevKit itself. The CI installs `shellcheck` and `actionlint` from
+Homebrew at whatever version Homebrew has;
 the version is printed in the log and is not pinned.
