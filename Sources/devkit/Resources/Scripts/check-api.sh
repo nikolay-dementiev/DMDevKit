@@ -329,6 +329,13 @@ def public_lines(lines):
 # UTF-8, and written as UTF-8, whatever the locale says: a locale that took its bytes for other
 # characters would let a line separator pass.
 LINE_BREAK = re.compile("[\r\x0b\x0c\x85\N{LINE SEPARATOR}\N{PARAGRAPH SEPARATOR}]")
+# The interface printer of Swift 6.4 qualifies a name with a module selector, Swift::UInt, and an inherited
+# member as Type.Module::member, where earlier printers wrote Swift.UInt and Type.member. The baselines and
+# the interfaces of old release tags are dotted, so the selector is read as the dotted spelling. The first
+# rule goes first: Module::Type.Module::member is Module.Type.member, and a lone "::" -> "." would keep
+# the second module name.
+SELECTOR_AFTER_DOT = re.compile(r"\.[A-Za-z_][A-Za-z0-9_]*::")
+SELECTOR = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)::")
 try:
     text = sys.stdin.buffer.read().decode("utf-8")
 except UnicodeDecodeError as error:
@@ -348,6 +355,7 @@ for record in records:
         sys.exit("check-api: line " + number + " holds a line break other than a line feed: U+"
                  + format(ord(found.group()), "04X"))
     if line and not line.startswith(("//", "import ")):
+        line = SELECTOR.sub(r"\1.", SELECTOR_AFTER_DOT.sub(".", line))
         numbered.append((int(number), line))
 
 blocks, current, conditions = [], [], 0
