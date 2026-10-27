@@ -59,6 +59,16 @@ public struct CommandTable: Sendable, Equatable {
             summary: "Compare the public interface of the library with its committed baseline; --update, --since <ref>, --self-test"
         ),
         Command(
+            name: "export-coverage",
+            scriptPath: "Scripts/export-coverage.py",
+            summary: "Export the line coverage of a library target from an Xcode result bundle to LCOV: <xcresult> <target> <output>"
+        ),
+        Command(
+            name: "count-tests",
+            scriptPath: "Scripts/count-tests.sh",
+            summary: "Check that every test method of some test files ran and passed in a result bundle: [--label <text>] <xcresult> <glob>..."
+        ),
+        Command(
             name: "check-release",
             scriptPath: "Scripts/check-release.sh",
             summary: "Check a release version against the changelog, the frozen podspec and the interface since the previous release; --notes <version>, --self-test"
