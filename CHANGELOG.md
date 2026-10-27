@@ -5,9 +5,17 @@ All notable changes to DMDevKit are written here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-27
+
+The second release. It is made so that the DMAction pilot can pin a version that runs on Swift 6.4.
+
 ### Added
 
 - The command `check-api` (compare, `--update`, `--since <ref>`, `--self-test`), taken from DMVariableBlurView with its normalizer cases. It reads `MODULE`, `SOURCE_DIR`, `SWIFT_FLAGS`, `LIBRARY_EVOLUTION`, `DEPENDENCIES` and `PREPARE` from `devkit.conf` and writes its work files to `.build/devkit/check-api`.
+
+### Fixed
+
+- `devkit` finds its scripts when the build was made by the Swift Build system, the default of Swift 6.4, which puts them in `DMDevKit_devkit.bundle/Contents/Resources/Resources`. Before, it exited with status 70 and "the resource folder ... is missing".
 
 ## [0.1.0] - 2026-10-19
 

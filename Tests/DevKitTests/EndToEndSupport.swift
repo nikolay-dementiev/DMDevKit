@@ -1,6 +1,7 @@
 import XCTest
 import CryptoKit
 import Foundation
+import DevKitCore
 
 struct Captured: Equatable {
     let status: Int32
@@ -26,7 +27,7 @@ final class EndToEndFixture {
 
     /// The copy of the scripts the binary runs.
     static func resourceFolder(for testCase: AnyClass) -> URL {
-        Bundle(for: testCase).bundleURL.deletingLastPathComponent().appendingPathComponent("DMDevKit_devkit.bundle/Resources", isDirectory: true)
+        ResourceFolderLocator(directoryInspector: FileManagerDirectoryInspector()).folder(besideExecutable: devkitURL(for: testCase))
     }
 
     func makeRepository(named name: String = "repo") throws -> URL {
