@@ -5,7 +5,7 @@ All notable changes to DMDevKit are written here. The format follows
 
 ## [Unreleased]
 
-## [0.3.0] - 2026-10-27
+## [0.3.0] - 2026-10-28
 
 The third release. It has every command that the three libraries still keep as a copy, so that they can move their remaining scripts to it, and it
 runs on Swift 6.4.
