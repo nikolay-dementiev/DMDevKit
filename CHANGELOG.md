@@ -12,6 +12,7 @@ All notable changes to DMDevKit are written here. The format follows
 
 ### Changed
 
+- DMDevKit lints its own sources and tests (`.swiftlint.yml`, CI job `lint`, with the analyzer rules). Long lines were wrapped and the wrapped declarations aligned; `GitRepositoryLocator` now refuses git output that is not UTF-8 (`notInRepository`) instead of decoding it with replacement characters.
 - `devkit` no longer passes `BASH_ENV`, `ENV`, `SHELLOPTS`, `BASHOPTS`, `PS4` or an exported function (`BASH_FUNC_*`) of its own environment to a script. An exported `compgen` could defeat the line with which a script clears the functions it inherits.
 
 ## [0.2.0] - 2026-10-27

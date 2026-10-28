@@ -8,7 +8,8 @@ final class ConfLoaderTests: XCTestCase {
         let result = try sut.run("echo \"$MODULE\"; echo \"${#SWIFT_FLAGS[@]} ${#DEPENDENCIES[@]} ${#PREPARE[@]}\"")
 
         XCTAssertEqual(result.status, 0, "a valid file loads")
-        XCTAssertEqual(result.standardOutput, "Foo\n0 0 0\n", "the scalar is set, the three arrays are empty and safe under set -u")
+        XCTAssertEqual(result.standardOutput, "Foo\n0 0 0\n",
+            "the scalar is set, the three arrays are empty and safe under set -u")
     }
 
     func test_arrays_keepTheirElementsIncludingBlanksAndBars() throws {
@@ -19,7 +20,8 @@ final class ConfLoaderTests: XCTestCase {
         PREPARE=(swift package resolve)
         """)
 
-        let result = try sut.run("printf '[%s]' \"${SWIFT_FLAGS[@]}\"; echo; printf '[%s]' \"${DEPENDENCIES[@]}\"; echo; echo ${#PREPARE[@]}")
+        let result = try sut.run("printf '[%s]' \"${SWIFT_FLAGS[@]}\"; echo; printf '[%s]' \"${DEPENDENCIES[@]}\"; echo; echo " +
+            "${#PREPARE[@]}")
 
         XCTAssertEqual(
             result.standardOutput,
@@ -82,8 +84,10 @@ final class ConfLoaderTests: XCTestCase {
         let defaulted = try makeSUT(conf: "DEVKIT_CONF_VERSION=1\nMODULE=Foo\n")
         let overridden = try makeSUT(conf: "DEVKIT_CONF_VERSION=1\nMODULE=Foo\nPODSPEC=Specs/Foo.podspec\n")
 
-        XCTAssertEqual(try defaulted.run("echo \"$PODSPEC\"").standardOutput, defaulted.root.path + "/Foo.podspec\n", "root plus module")
-        XCTAssertEqual(try overridden.run("echo \"$PODSPEC\"").standardOutput, overridden.root.path + "/Specs/Foo.podspec\n", "a relative override is relative to the root")
+        XCTAssertEqual(try defaulted.run("echo \"$PODSPEC\"").standardOutput, defaulted.root.path + "/Foo.podspec\n",
+            "root plus module")
+        XCTAssertEqual(try overridden.run("echo \"$PODSPEC\"").standardOutput, overridden.root.path + "/Specs/Foo.podspec\n",
+            "a relative override is relative to the root")
     }
 
     func test_valuesLeftInTheEnvironment_doNotLeakIntoTheSettings() throws {
@@ -103,8 +107,10 @@ final class ConfLoaderTests: XCTestCase {
     }
 
     func test_confThatSetsADevkitPath_isRejected() throws {
-        for line in ["DEVKIT_REPO_ROOT=/elsewhere", "DEVKIT_CONF=/elsewhere/devkit.conf", "DEVKIT_WORK=/elsewhere", "DEVKIT_RESOURCES=/elsewhere"] {
-            let sut = try makeSUT(conf: "DEVKIT_CONF_VERSION=1\n\(line)\n", environment: ["DEVKIT_WORK": "/work", "DEVKIT_RESOURCES": "/resources"])
+        for line in ["DEVKIT_REPO_ROOT=/elsewhere", "DEVKIT_CONF=/elsewhere/devkit.conf", "DEVKIT_WORK=/elsewhere",
+            "DEVKIT_RESOURCES=/elsewhere"] {
+            let sut = try makeSUT(conf: "DEVKIT_CONF_VERSION=1\n\(line)\n", environment: ["DEVKIT_WORK": "/work",
+                "DEVKIT_RESOURCES": "/resources"])
 
             let result = try sut.run("echo loaded")
 
@@ -149,6 +155,7 @@ final class ConfLoaderTests: XCTestCase {
         base["LOADER"] = loader.path
         base["DEVKIT_REPO_ROOT"] = realRoot.path
         base["DEVKIT_CONF"] = realRoot.appendingPathComponent("devkit.conf").path
-        return SUT(fixture: fixture, root: realRoot, loader: loader, environment: base.merging(environment) { _, added in added }, prelude: prelude)
+        return SUT(fixture: fixture, root: realRoot, loader: loader, environment: base.merging(environment) { _, added in added },
+            prelude: prelude)
     }
 }

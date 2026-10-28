@@ -35,7 +35,8 @@ final class FoundationProcessLauncherTests: XCTestCase {
 
         let result = try sut.launcher.run(RunPlan(executable: "/bin/bash", arguments: [script], environment: [:]))
 
-        XCTAssertEqual(result, LaunchResult(outcome: .signaled(15), forwardedSignal: nil), "SIGTERM ended the child, devkit forwarded nothing")
+        XCTAssertEqual(result, LaunchResult(outcome: .signaled(15), forwardedSignal: nil),
+            "SIGTERM ended the child, devkit forwarded nothing")
     }
 
     func test_standardOutputAndStandardError_stayApart() throws {
@@ -62,7 +63,8 @@ final class FoundationProcessLauncherTests: XCTestCase {
         let sut = try makeSUT()
         let script = try makeScript("import sys\nprint(sys.dont_write_bytecode)", name: "emit.py")
 
-        let result = try sut.launcher.run(RunPlan(executable: "/usr/bin/env", arguments: ["python3", "-B", script], environment: [:]))
+        let result = try sut.launcher.run(RunPlan(executable: "/usr/bin/env", arguments: ["python3", "-B", script],
+            environment: [:]))
 
         XCTAssertEqual(result.outcome, .exited(0), "python3 ran the script")
         XCTAssertEqual(try sut.standardOutput(), "True\n", "-B reached python3")
@@ -79,8 +81,15 @@ final class FoundationProcessLauncherTests: XCTestCase {
 
     func test_inheritedShellStartupHooks_areNotPassedToTheChild() throws {
         let sut = try makeSUT()
-        let hooks = ["BASH_ENV": "/nonexistent/startup", "ENV": "/nonexistent/startup", "BASH_FUNC_shasum%%": "() { echo fake; }", "DEVKIT_TEST_KEPT": "kept",
-                     "SHELLOPTS": "xtrace", "BASHOPTS": "extdebug", "PS4": "$(touch /nonexistent/x)"]
+        let hooks = [
+            "BASH_ENV": "/nonexistent/startup",
+            "ENV": "/nonexistent/startup",
+            "BASH_FUNC_shasum%%": "() { echo fake; }",
+            "DEVKIT_TEST_KEPT": "kept",
+            "SHELLOPTS": "xtrace",
+            "BASHOPTS": "extdebug",
+            "PS4": "$(touch /nonexistent/x)"
+        ]
         let previous = hooks.keys.reduce(into: [String: String]()) { $0[$1] = ProcessInfo.processInfo.environment[$1] }
         for (name, value) in hooks { setenv(name, value, 1) }
         addTeardownBlock {
@@ -91,11 +100,13 @@ final class FoundationProcessLauncherTests: XCTestCase {
 
         _ = try sut.launcher.run(RunPlan(executable: "/usr/bin/env", arguments: [], environment: [:]))
 
-        let names = try sut.standardOutput().split(separator: "\n").compactMap { $0.split(separator: "=", maxSplits: 1).first.map(String.init) }
+        let names = try sut.standardOutput().split(separator: "\n").compactMap { $0.split(separator: "=",
+            maxSplits: 1).first.map(String.init) }
         XCTAssertFalse(names.contains("BASH_ENV"), "a file bash would run at start is not inherited: \(names)")
         XCTAssertFalse(names.contains("ENV"), "the startup file of other shells is not inherited: \(names)")
         XCTAssertFalse(names.contains { $0.hasPrefix("BASH_FUNC_") }, "an exported function is not inherited: \(names)")
-        XCTAssertFalse(names.contains("SHELLOPTS") || names.contains("BASHOPTS") || names.contains("PS4"), "options that make bash trace or expand a prompt are not inherited: \(names)")
+        XCTAssertFalse(names.contains("SHELLOPTS") || names.contains("BASHOPTS") || names.contains("PS4"),
+            "options that make bash trace or expand a prompt are not inherited: \(names)")
         XCTAssertTrue(names.contains("DEVKIT_TEST_KEPT"), "an ordinary variable still is: \(names)")
         XCTAssertTrue(names.contains("PATH"), "so is the PATH: \(names)")
     }
@@ -104,7 +115,8 @@ final class FoundationProcessLauncherTests: XCTestCase {
         let sut = try makeSUT()
         let script = try makeScript("echo \"${BASH_ENV-unset}\"")
 
-        _ = try sut.launcher.run(RunPlan(executable: "/bin/bash", arguments: ["--noprofile", script], environment: ["BASH_ENV": "/nonexistent/from-the-plan"]))
+        _ = try sut.launcher.run(RunPlan(executable: "/bin/bash", arguments: ["--noprofile", script],
+            environment: ["BASH_ENV": "/nonexistent/from-the-plan"]))
 
         let printed = try sut.standardOutput()
         XCTAssertTrue(printed.hasPrefix("/nonexistent/from-the-plan"), "what devkit itself adds reaches the child: \(printed)")
@@ -155,10 +167,10 @@ final class FoundationProcessLauncherTests: XCTestCase {
         func standardError() throws -> String { try String(contentsOf: errorURL, encoding: .utf8) }
     }
 
-    private var directory: URL!
+    private let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("devkit-launcher-\(UUID().uuidString)", isDirectory: true)
 
     override func setUpWithError() throws {
-        directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-launcher-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     }
 
@@ -193,7 +205,8 @@ final class FoundationProcessLauncherTests: XCTestCase {
 final class FoundationProcessLauncherSignalTests: XCTestCase {
     private var previousDisposition: (@convention(c) (Int32) -> Void)?
 
-    // SIGUSR1 is ignored by the test process for the whole test, so that a signal sent outside the launcher's window cannot end the runner.
+    // SIGUSR1 is ignored by the test process for the whole test, so that a signal sent outside the launcher's window cannot end
+    // the runner.
     override func setUp() {
         previousDisposition = signal(SIGUSR1, SIG_IGN)
     }
@@ -203,7 +216,8 @@ final class FoundationProcessLauncherSignalTests: XCTestCase {
     }
 
     func test_signalReceivedWhileTheChildRuns_isForwardedAndReported() throws {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-signal-\(UUID().uuidString)", isDirectory: true)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-signal-\(UUID().uuidString)",
+            isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
         let ready = directory.appendingPathComponent("ready")
@@ -233,7 +247,8 @@ final class FoundationProcessLauncherSignalTests: XCTestCase {
             environment: ["READY": ready.path, "MARKER": marker.path]
         ))
 
-        XCTAssertEqual(result, LaunchResult(outcome: .exited(0), forwardedSignal: SIGUSR1), "the child saw the signal and the launcher says which one it forwarded")
+        XCTAssertEqual(result, LaunchResult(outcome: .exited(0), forwardedSignal: SIGUSR1),
+            "the child saw the signal and the launcher says which one it forwarded")
         XCTAssertTrue(FileManager.default.fileExists(atPath: marker.path), "the child's trap ran")
     }
 }

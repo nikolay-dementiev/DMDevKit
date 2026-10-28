@@ -23,36 +23,43 @@ final class LintContractEndToEndTests: XCTestCase {
         let result = try sut.run()
 
         XCTAssertEqual(result.status, 1, "a line that expects a diagnostic got none")
-        XCTAssertTrue(result.standardError.contains("termination.txt:2: expected no_process_termination, got no diagnostic"), "the line is named: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("termination.txt:2: expected no_process_termination, got no diagnostic"),
+            "the line is named: \(result.standardError)")
     }
 
     func test_aDiagnosticOnALineThatExpectsNone_failsTheContract() throws {
         var files = Self.files
-        files["Fixtures/Lint/termination.txt"] = "let value = 1\nfatalError(\"x\") // expect: no_process_termination\nfatalError(\"y\")\n"
+        files["Fixtures/Lint/termination.txt"] = "let value = 1\nfatalError(\"x\") // expect: " +
+            "no_process_termination\nfatalError(\"y\")\n"
         let sut = try makeSUT(files: files)
 
         let result = try sut.run()
 
         XCTAssertEqual(result.status, 1, "a line without an expectation must give none of the rules")
-        XCTAssertTrue(result.standardError.contains("termination.txt:3: expected no diagnostic, got no_process_termination"), "the line is named: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("termination.txt:3: expected no diagnostic, got no_process_termination"),
+            "the line is named: \(result.standardError)")
     }
 
     func test_aRuleThatReachesAnOutsideFixture_failsTheContract() throws {
-        let sut = try makeSUT(config: Self.config.replacingOccurrences(of: ".*/Sources/Lib/.*\\\\.swift", with: ".*/Sources/.*\\\\.swift"))
+        let sut = try makeSUT(config: Self.config.replacingOccurrences(of: ".*/Sources/Lib/.*\\\\.swift",
+            with: ".*/Sources/.*\\\\.swift"))
 
         let result = try sut.run()
 
         XCTAssertEqual(result.status, 1, "a rule that is too wide reaches a fixture outside the library")
-        XCTAssertTrue(result.standardError.contains("Outside/Sources/Other/Thing.txt"), "the Outside fixture is named: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("Outside/Sources/Other/Thing.txt"),
+            "the Outside fixture is named: \(result.standardError)")
     }
 
     func test_aSubfolderFixtureIsLintedInTheSameSubfolderOfTheSourceDirectory() throws {
-        let sut = try makeSUT(config: Self.config.replacingOccurrences(of: ".*/Sources/Lib/Domain/.*\\\\.swift", with: ".*/Sources/Lib/Other/.*\\\\.swift"))
+        let sut = try makeSUT(config: Self.config.replacingOccurrences(of: ".*/Sources/Lib/Domain/.*\\\\.swift",
+            with: ".*/Sources/Lib/Other/.*\\\\.swift"))
 
         let result = try sut.run()
 
         XCTAssertEqual(result.status, 1, "the Domain fixture no longer sits where the rule applies")
-        XCTAssertTrue(result.standardError.contains("Domain/imports.txt:2: expected domain_imports, got no diagnostic"), "the Domain fixture is the one named: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("Domain/imports.txt:2: expected domain_imports, got no diagnostic"),
+            "the Domain fixture is the one named: \(result.standardError)")
     }
 
     // MARK: - Guards: the check could not be made
@@ -63,7 +70,8 @@ final class LintContractEndToEndTests: XCTestCase {
         let result = try sut.run()
 
         XCTAssertEqual(result.status, 2, "nothing to prove")
-        XCTAssertTrue(result.standardError.contains("no fixture found in Fixtures/Lint"), "the folder is named: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("no fixture found in Fixtures/Lint"),
+            "the folder is named: \(result.standardError)")
     }
 
     func test_aRuleNoFixtureExpects_isStatusTwo() throws {
@@ -72,7 +80,8 @@ final class LintContractEndToEndTests: XCTestCase {
         let result = try sut.run()
 
         XCTAssertEqual(result.status, 2, "a rule that nothing proves")
-        XCTAssertTrue(result.standardError.contains("no fixture expects the rule 'ghost_rule'"), "the rule is named: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("no fixture expects the rule 'ghost_rule'"),
+            "the rule is named: \(result.standardError)")
     }
 
     func test_aFixtureExpectingAnUnknownRule_isStatusTwo() throws {
@@ -83,7 +92,8 @@ final class LintContractEndToEndTests: XCTestCase {
         let result = try sut.run()
 
         XCTAssertEqual(result.status, 2, "an expectation the contract does not cover")
-        XCTAssertTrue(result.standardError.contains("expects 'other_rule', which is not a rule of the contract"), "the rule is named: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("expects 'other_rule', which is not a rule of the contract"),
+            "the rule is named: \(result.standardError)")
     }
 
     func test_aFixtureNameTheContractCannotCarry_isStatusTwo() throws {
@@ -94,7 +104,8 @@ final class LintContractEndToEndTests: XCTestCase {
         let result = try sut.run()
 
         XCTAssertEqual(result.status, 2, "a character outside letters, digits and . _ - / and spaces")
-        XCTAssertTrue(result.standardError.contains("odd$name.txt has a character in its name"), "the file is named: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("odd$name.txt has a character in its name"),
+            "the file is named: \(result.standardError)")
     }
 
     func test_anOutsideFixtureThatExpectsADiagnostic_isStatusTwo() throws {
@@ -105,7 +116,8 @@ final class LintContractEndToEndTests: XCTestCase {
         let result = try sut.run()
 
         XCTAssertEqual(result.status, 2, "a fixture outside the library expects nothing")
-        XCTAssertTrue(result.standardError.contains("a fixture under Outside expects none"), "the message says so: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("a fixture under Outside expects none"),
+            "the message says so: \(result.standardError)")
     }
 
     func test_aSourceDirectoryThatDoesNotExist_isStatusTwo() throws {
@@ -114,7 +126,8 @@ final class LintContractEndToEndTests: XCTestCase {
         let result = try sut.run()
 
         XCTAssertEqual(result.status, 2, "the include patterns of the rules name it")
-        XCTAssertTrue(result.standardError.contains("Sources/Missing does not exist"), "the folder is named: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("Sources/Missing does not exist"),
+            "the folder is named: \(result.standardError)")
     }
 
     func test_swiftlintThatLintsFewerFilesThanThereAreFixtures_isStatusTwo() throws {
@@ -123,7 +136,8 @@ final class LintContractEndToEndTests: XCTestCase {
         let result = try sut.run()
 
         XCTAssertEqual(result.status, 2, "a run that lints no file reports no violation, and every rule would look quiet")
-        XCTAssertTrue(result.standardError.contains("SwiftLint linted 2 files, and there are 3 fixtures"), "both counts are named: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("SwiftLint linted 2 files, and there are 3 fixtures"),
+            "both counts are named: \(result.standardError)")
     }
 
     // MARK: - The configuration
@@ -142,7 +156,8 @@ final class LintContractEndToEndTests: XCTestCase {
     }
 
     func test_fixtureDirectory_canBeSet() throws {
-        var moved = Dictionary(uniqueKeysWithValues: Self.files.map { ($0.key.replacingOccurrences(of: "Fixtures/Lint", with: "Fx"), $0.value) })
+        var moved = Dictionary(uniqueKeysWithValues: Self.files.map { ($0.key.replacingOccurrences(of: "Fixtures/Lint",
+            with: "Fx"), $0.value) })
         moved["Sources/Lib/Keep.swift"] = "let kept = 1\n"
         let sut = try makeSUT(files: moved, conf: Self.conf(extra: "FIXTURE_DIR=\"Fx/\"\n"))
 
@@ -179,9 +194,11 @@ final class LintContractEndToEndTests: XCTestCase {
         environment["DEVKIT_RESOURCES"] = moved.path
         environment["DEVKIT_CONF"] = EndToEndFixture.realPath(sut.repository) + "/devkit.conf"
 
-        let result = try sut.fixture.capture("/bin/bash", [moved.appendingPathComponent("Scripts/check-lint-contract.sh").path], in: sut.repository, environment: environment)
+        let result = try sut.fixture.capture("/bin/bash", [moved.appendingPathComponent("Scripts/check-lint-contract.sh").path],
+            in: sut.repository, environment: environment)
 
-        XCTAssertEqual(result.status, 0, "a script that looked at its own location would not find the repository: \(result.standardError)")
+        XCTAssertEqual(result.status, 0,
+            "a script that looked at its own location would not find the repository: \(result.standardError)")
     }
 
     // MARK: - Helpers
@@ -213,10 +230,14 @@ final class LintContractEndToEndTests: XCTestCase {
         "Fixtures/Lint/Domain/imports.txt": "import Foundation\nimport UIKit // expect: domain_imports\n",
         "Fixtures/Lint/termination.txt": "let value = 1\nfatalError(\"x\") // expect: no_process_termination\n",
         "Fixtures/Lint/Outside/Sources/Other/Thing.txt": "fatalError(\"outside\")\n",
-        "Sources/Lib/Keep.swift": "let kept = 1\n",
+        "Sources/Lib/Keep.swift": "let kept = 1\n"
     ]
 
-    static func conf(sourceDirectory: String = "Sources/Lib", rules: String = "domain_imports no_process_termination", extra: String = "") -> String {
+    static func conf(
+        sourceDirectory: String = "Sources/Lib",
+        rules: String = "domain_imports no_process_termination",
+        extra: String = ""
+    ) -> String {
         "DEVKIT_CONF_VERSION=1\nSOURCE_DIR=\"\(sourceDirectory)\"\nRULES=\"\(rules)\"\n" + extra
     }
 
@@ -231,7 +252,11 @@ final class LintContractEndToEndTests: XCTestCase {
         }
     }
 
-    private func makeSUT(files: [String: String] = LintContractEndToEndTests.files, config: String = LintContractEndToEndTests.config, conf: String? = LintContractEndToEndTests.conf()) throws -> SUT {
+    private func makeSUT(
+        files: [String: String] = LintContractEndToEndTests.files,
+        config: String = LintContractEndToEndTests.config,
+        conf: String? = LintContractEndToEndTests.conf()
+    ) throws -> SUT {
         let fixture = try EndToEndFixture()
         let directory = fixture.directory
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
@@ -244,6 +269,7 @@ final class LintContractEndToEndTests: XCTestCase {
             try text.write(to: url, atomically: true, encoding: .utf8)
         }
         try RealSwiftLint.seed(into: repository)
-        return SUT(fixture: fixture, repository: repository, devkit: EndToEndFixture.devkitURL(for: Self.self), resources: EndToEndFixture.resourceFolder(for: Self.self))
+        return SUT(fixture: fixture, repository: repository, devkit: EndToEndFixture.devkitURL(for: Self.self),
+            resources: EndToEndFixture.resourceFolder(for: Self.self))
     }
 }

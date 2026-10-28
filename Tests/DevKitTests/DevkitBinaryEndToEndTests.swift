@@ -43,12 +43,14 @@ final class DevkitBinaryEndToEndTests: XCTestCase {
         let sub = sut.repository.appendingPathComponent("a/b", isDirectory: true)
         try FileManager.default.createDirectory(at: sub, withIntermediateDirectories: true)
 
-        _ = try sut.fixture.capture(sut.devkit.path, ["prepare-simulator", "iPhone 15", "17.5"], in: sub, environment: sut.fixture.shimmedEnvironment())
+        _ = try sut.fixture.capture(sut.devkit.path, ["prepare-simulator", "iPhone 15", "17.5"], in: sub,
+            environment: sut.fixture.shimmedEnvironment())
 
         let root = EndToEndFixture.realPath(sut.repository)
         let lines = try String(contentsOf: record, encoding: .utf8).split(separator: "\n").map(String.init)
         XCTAssertEqual(lines.first, root, "the git top level, not the subfolder")
-        XCTAssertEqual(lines.dropFirst().first.map { URL(fileURLWithPath: $0).standardized.path }, EndToEndFixture.resourceFolder(for: Self.self).standardized.path, "the resource folder of the binary")
+        XCTAssertEqual(lines.dropFirst().first.map { URL(fileURLWithPath: $0).standardized.path },
+            EndToEndFixture.resourceFolder(for: Self.self).standardized.path, "the resource folder of the binary")
         XCTAssertEqual(lines.dropFirst(2).first, root + "/devkit.conf", "the configuration file is at the root")
         XCTAssertEqual(lines.dropFirst(3).first, root + "/.build/devkit", "the work folder is under the build folder")
     }
@@ -93,7 +95,8 @@ final class DevkitBinaryEndToEndTests: XCTestCase {
         let directory = fixture.directory
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
         let devkit = EndToEndFixture.devkitURL(for: Self.self)
-        XCTAssertTrue(FileManager.default.isExecutableFile(atPath: devkit.path), "the built devkit is at \(devkit.path); build the product before the tests")
+        XCTAssertTrue(FileManager.default.isExecutableFile(atPath: devkit.path),
+            "the built devkit is at \(devkit.path); build the product before the tests")
         return SUT(fixture: fixture, repository: try fixture.makeRepository(), devkit: devkit)
     }
 }

@@ -62,6 +62,27 @@ jobs:
       - name: Test
         run: swift test -Xswiftc -warnings-as-errors
 
+  # DMDevKit lints itself with its own command and the rules in .swiftlint.yml. The analyzer rules read the compiler
+  # invocations of a build, so the build that writes the log is the first step of a fresh checkout and compiles everything.
+  lint:
+    name: lint
+    runs-on: macos-26
+    timeout-minutes: 20
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build with the compiler invocations in the log
+        run: swift build --build-tests -v > "$RUNNER_TEMP/build.log" 2>&1
+      - name: Fetch SwiftLint
+        run: swift run devkit swiftlint-fetch 0.65.1
+      - name: Lint
+        run: swift run devkit lint
+      - name: Lint with the analyzer rules
+        run: swift run devkit lint --analyze "$RUNNER_TEMP/build.log"
+
   shellcheck:
     name: shellcheck
     runs-on: macos-26

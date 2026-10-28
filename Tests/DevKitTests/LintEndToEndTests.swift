@@ -8,7 +8,8 @@ final class LintEndToEndTests: XCTestCase {
         let result = try sut.run(["lint"])
 
         XCTAssertEqual(result.status, 0, "no violation: \(result.standardError)")
-        XCTAssertEqual(result.standardOutput, "lint: no violations (SwiftLint 0.65.1) in 1 files.\n", "the summary names the version and the file count")
+        XCTAssertEqual(result.standardOutput, "lint: no violations (SwiftLint 0.65.1) in 1 files.\n",
+            "the summary names the version and the file count")
         XCTAssertEqual(result.standardError, "", "nothing on standard error")
     }
 
@@ -18,7 +19,8 @@ final class LintEndToEndTests: XCTestCase {
         let result = try sut.run(["lint", "--bogus"])
 
         XCTAssertEqual(result.status, 2, "a mistyped option would otherwise lint without the analyzer and pass")
-        XCTAssertTrue(result.standardError.contains("usage: devkit lint [--analyze <xcodebuild log>]"), "the usage names the command")
+        XCTAssertTrue(result.standardError.contains("usage: devkit lint [--analyze <xcodebuild log>]"),
+            "the usage names the command")
         XCTAssertFalse(FileManager.default.fileExists(atPath: sut.curlLog.path), "nothing was fetched")
     }
 
@@ -30,7 +32,8 @@ final class LintEndToEndTests: XCTestCase {
 
             XCTAssertEqual(result.status, 2, "'\(version)' is not a version")
             XCTAssertTrue(
-                result.standardError.contains("lint: .swiftlint.yml must pin swiftlint_version to a version such as 0.65.1, not '\(version)'"),
+                result.standardError.contains("lint: .swiftlint.yml must pin swiftlint_version to a version such as 0.65.1, " +
+                    "not '\(version)'"),
                 "the message names the value: \(result.standardError)"
             )
         }
@@ -42,7 +45,8 @@ final class LintEndToEndTests: XCTestCase {
         let result = try sut.run(["lint"])
 
         XCTAssertEqual(result.status, 2, "DMDevKit has no checksum for it")
-        XCTAssertTrue(result.standardError.contains("lint: DMDevKit has no checksum for SwiftLint 0.64.0"), "the message says whose table lacks it")
+        XCTAssertTrue(result.standardError.contains("lint: DMDevKit has no checksum for SwiftLint 0.64.0"),
+            "the message says whose table lacks it")
         XCTAssertFalse(FileManager.default.fileExists(atPath: sut.curlLog.path), "nothing was downloaded")
     }
 
@@ -52,7 +56,8 @@ final class LintEndToEndTests: XCTestCase {
         let result = try sut.run(["lint"])
 
         XCTAssertEqual(result.status, 2, "a missing folder would drop out of the lint without a word")
-        XCTAssertTrue(result.standardError.contains("lint: .swiftlint.yml includes Gone, which does not exist"), "the message names the folder")
+        XCTAssertTrue(result.standardError.contains("lint: .swiftlint.yml includes Gone, which does not exist"),
+            "the message names the folder")
     }
 
     func test_includedFolderWithoutSwiftFiles_passesSwiftLintsOwnStatusThrough() throws {
@@ -82,10 +87,14 @@ final class LintEndToEndTests: XCTestCase {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         try Data("not the archive".utf8).write(to: folder.appendingPathComponent("portable_swiftlint.zip"))
 
-        let result = try sut.run(["lint"], adding: ["BASH_FUNC_shasum%%": "() { echo c1e429b0599cf1b516f369a2d9ec04eaf0e436f3c12b637df8851fa52ff694d0; }"])
+        let result = try sut.run(["lint"],
+            adding: ["BASH_FUNC_shasum%%": "() { echo c1e429b0599cf1b516f369a2d9ec04eaf0e436f3c12b637df8851fa52ff694d0; }"])
 
-        XCTAssertEqual(result.status, 2, "a function named shasum from the caller's environment must not make a tampered archive pass: \(result.standardError)")
-        XCTAssertTrue(result.standardError.contains("It was removed"), "the checksum check ran and refused the archive: \(result.standardError)")
+        XCTAssertEqual(result.status, 2,
+            "a function named shasum from the caller's environment must not make a tampered archive pass: " +
+            "\(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("It was removed"),
+            "the checksum check ran and refused the archive: \(result.standardError)")
     }
 
     func test_analyzeWithoutALog_isStatusOneNamingTheMissingArgument() throws {
@@ -103,7 +112,8 @@ final class LintEndToEndTests: XCTestCase {
         let result = try sut.run(["lint", "--analyze", "nolog.log"])
 
         XCTAssertEqual(result.status, 1, "SwiftLint's own status")
-        XCTAssertTrue(result.standardError.contains("Could not read compiler log"), "its message is shown: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("Could not read compiler log"),
+            "its message is shown: \(result.standardError)")
     }
 
     func test_analyzeWithALogThatHasNoCompilerInvocation_isStatusTwo() throws {
@@ -112,7 +122,8 @@ final class LintEndToEndTests: XCTestCase {
         let result = try sut.run(["lint", "--analyze", "build.log"])
 
         XCTAssertEqual(result.status, 2, "the analyzer read no file, and SwiftLint alone would still exit 0")
-        XCTAssertTrue(result.standardError.contains("lint: the analyzer read no Swift file"), "the message says why: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("lint: the analyzer read no Swift file"),
+            "the message says why: \(result.standardError)")
     }
 
     func test_withoutDevkit_theScriptRefusesToGuessTheRepository() throws {
@@ -133,9 +144,11 @@ final class LintEndToEndTests: XCTestCase {
         environment["DEVKIT_REPO_ROOT"] = EndToEndFixture.realPath(sut.repository)
         environment["DEVKIT_RESOURCES"] = moved.path
 
-        let result = try sut.fixture.capture("/bin/bash", [moved.appendingPathComponent("Scripts/lint.sh").path], in: sut.repository, environment: environment)
+        let result = try sut.fixture.capture("/bin/bash", [moved.appendingPathComponent("Scripts/lint.sh").path],
+            in: sut.repository, environment: environment)
 
-        XCTAssertEqual(result.status, 0, "a script that looked at its own location would not find the repository: \(result.standardError)")
+        XCTAssertEqual(result.status, 0,
+            "a script that looked at its own location would not find the repository: \(result.standardError)")
         XCTAssertTrue(result.standardOutput.contains("in 1 files"), "it linted the repository it was given")
     }
 
@@ -161,12 +174,14 @@ final class LintEndToEndTests: XCTestCase {
 
         func run(_ arguments: [String], adding: [String: String] = [:]) throws -> Captured {
             try fixture.writeShim(named: "curl", body: "echo \"$*\" >> '\(curlLog.path)'\nexit 22\n")
-            return try fixture.capture(devkit.path, arguments, in: repository, environment: fixture.shimmedEnvironment(adding: adding))
+            return try fixture.capture(devkit.path, arguments, in: repository,
+                environment: fixture.shimmedEnvironment(adding: adding))
         }
     }
 
     private func makeSUT(
-        config: String = "swiftlint_version: \(RealSwiftLint.version)\nopt_in_rules:\n  - force_unwrapping\nincluded:\n  - Sources\n",
+        config: String = "swiftlint_version: \(RealSwiftLint.version)\nopt_in_rules:\n  - force_unwrapping\nincluded:\n  - " +
+            "Sources\n",
         files: [String: String] = ["Sources/A.swift": "let value = 1\n"],
         seed: Bool = true
     ) throws -> SUT {
@@ -174,7 +189,8 @@ final class LintEndToEndTests: XCTestCase {
         let directory = fixture.directory
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
         let repository = try fixture.makeRepository()
-        try FileManager.default.createDirectory(at: repository.appendingPathComponent("Sources"), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: repository.appendingPathComponent("Sources"),
+            withIntermediateDirectories: true)
         try config.write(to: repository.appendingPathComponent(".swiftlint.yml"), atomically: true, encoding: .utf8)
         for (path, text) in files {
             try text.write(to: repository.appendingPathComponent(path), atomically: true, encoding: .utf8)

@@ -85,7 +85,7 @@ public struct CommandLineRunner {
             DevKitEnvironment.repositoryRoot: root.path,
             DevKitEnvironment.resources: resourceFolder.path,
             DevKitEnvironment.configuration: root.appendingPathComponent("devkit.conf").path,
-            DevKitEnvironment.work: root.appendingPathComponent(".build/devkit", isDirectory: true).path,
+            DevKitEnvironment.work: root.appendingPathComponent(".build/devkit", isDirectory: true).path
         ]
         switch command.interpreter {
         case .bash:

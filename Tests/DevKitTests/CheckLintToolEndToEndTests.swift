@@ -8,24 +8,32 @@ final class CheckLintToolEndToEndTests: XCTestCase {
         let result = try sut.run(["check-lint-tool"])
 
         XCTAssertEqual(result.status, 0, "the four behaviours hold: \(result.standardError)")
-        XCTAssertTrue(result.standardOutput.contains("the tool stays whole while another run unpacks"), "behaviour 1a: \(result.standardOutput)")
-        XCTAssertTrue(result.standardOutput.contains("the new tool replaces the old one by a rename"), "behaviour 1b: \(result.standardOutput)")
-        XCTAssertTrue(result.standardOutput.contains("two first-time runs at once both succeed"), "behaviour 2: \(result.standardOutput)")
-        XCTAssertTrue(result.standardOutput.contains("a wrong checksum is removed and never unpacked"), "behaviour 3: \(result.standardOutput)")
-        XCTAssertTrue(result.standardOutput.contains("a failed download and a failed unpack leave nothing behind"), "behaviour 4: \(result.standardOutput)")
-        XCTAssertTrue(result.standardOutput.hasSuffix("check-lint-tool: the 4 behaviours of swiftlint-tool.sh hold.\n"), "the closing line: \(result.standardOutput)")
+        XCTAssertTrue(result.standardOutput.contains("the tool stays whole while another run unpacks"),
+            "behaviour 1a: \(result.standardOutput)")
+        XCTAssertTrue(result.standardOutput.contains("the new tool replaces the old one by a rename"),
+            "behaviour 1b: \(result.standardOutput)")
+        XCTAssertTrue(result.standardOutput.contains("two first-time runs at once both succeed"),
+            "behaviour 2: \(result.standardOutput)")
+        XCTAssertTrue(result.standardOutput.contains("a wrong checksum is removed and never unpacked"),
+            "behaviour 3: \(result.standardOutput)")
+        XCTAssertTrue(result.standardOutput.contains("a failed download and a failed unpack leave nothing behind"),
+            "behaviour 4: \(result.standardOutput)")
+        XCTAssertTrue(result.standardOutput.hasSuffix("check-lint-tool: the 4 behaviours of swiftlint-tool.sh hold.\n"),
+            "the closing line: \(result.standardOutput)")
     }
 
     func test_anUnpackThatWritesIntoTheToolInPlace_failsTheCheck() throws {
         let sut = try makeSUT()
         let moved = try sut.movedResources { helper in
-            helper.replacingOccurrences(of: "mv -f \"$stage/swiftlint\" \"$tools/swiftlint\"", with: "cp \"$stage/swiftlint\" \"$tools/swiftlint\"")
+            helper.replacingOccurrences(of: "mv -f \"$stage/swiftlint\" \"$tools/swiftlint\"",
+                with: "cp \"$stage/swiftlint\" \"$tools/swiftlint\"")
         }
 
         let result = try sut.runMoved(moved)
 
         XCTAssertEqual(result.status, 1, "the old helper that wrote in place does not pass")
-        XCTAssertTrue(result.standardError.contains("the unpack wrote into the file that a running process could hold"), "behaviour 1 is the one named: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("the unpack wrote into the file that a running process could hold"),
+            "behaviour 1 is the one named: \(result.standardError)")
     }
 
     func test_aChecksumThatIsNotCheckedBeforeTheUnpack_failsTheCheck() throws {
@@ -49,13 +57,15 @@ final class CheckLintToolEndToEndTests: XCTestCase {
         let result = try sut.runMoved(moved)
 
         XCTAssertEqual(result.status, 1, "a refused download that leaves files behind is behaviour 4")
-        XCTAssertTrue(result.standardError.contains("refused download left files behind"), "behaviour 4 is the one named: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("refused download left files behind"),
+            "behaviour 4 is the one named: \(result.standardError)")
     }
 
     func test_withoutDevkit_theScriptRefusesToGuessTheRepository() throws {
         let sut = try makeSUT()
 
-        let result = try sut.fixture.capture("/bin/bash", [sut.resources.appendingPathComponent("Scripts/check-lint-tool.sh").path], in: sut.repository)
+        let result = try sut.fixture.capture("/bin/bash",
+            [sut.resources.appendingPathComponent("Scripts/check-lint-tool.sh").path], in: sut.repository)
 
         XCTAssertEqual(result.status, 2, "no DEVKIT_RESOURCES, no run")
         XCTAssertTrue(result.standardError.contains("run it as 'devkit check-lint-tool'"), "the message names the command")
@@ -67,7 +77,8 @@ final class CheckLintToolEndToEndTests: XCTestCase {
 
         let result = try sut.runMoved(moved)
 
-        XCTAssertEqual(result.status, 0, "a script that looked at its own location would not find the helper: \(result.standardError)")
+        XCTAssertEqual(result.status, 0,
+            "a script that looked at its own location would not find the helper: \(result.standardError)")
     }
 
     // MARK: - Helpers
@@ -101,7 +112,8 @@ final class CheckLintToolEndToEndTests: XCTestCase {
             var environment = fixture.shimmedEnvironment()
             environment["DEVKIT_REPO_ROOT"] = EndToEndFixture.realPath(repository)
             environment["DEVKIT_RESOURCES"] = moved.path
-            return try fixture.capture("/bin/bash", [moved.appendingPathComponent("Scripts/check-lint-tool.sh").path], in: repository, environment: environment)
+            return try fixture.capture("/bin/bash", [moved.appendingPathComponent("Scripts/check-lint-tool.sh").path],
+                in: repository, environment: environment)
         }
     }
 

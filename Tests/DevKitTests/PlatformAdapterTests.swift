@@ -34,6 +34,17 @@ final class GitRepositoryLocatorTests: XCTestCase {
         }
     }
 
+    func test_topLevel_whenGitPrintsBytesThatAreNoUtf8_throwsNotInRepository() throws {
+        let (_, directory) = try makeSUT()
+        let script = directory.appendingPathComponent("fake-git.sh")
+        try "printf '/tmp/\\377\\376\\n'\n".write(to: script, atomically: true, encoding: .utf8)
+        let sut = GitRepositoryLocator(command: ["/bin/bash", script.path])
+
+        XCTAssertThrowsError(try sut.topLevel(of: directory), "a path that cannot be read is not a path") { error in
+            XCTAssertEqual(error as? DevKitError, .notInRepository(directory: directory.path), "the error names the directory")
+        }
+    }
+
     func test_gitEnvironmentOfTheCaller_doesNotRedirectTheLookup() throws {
         let (sut, first) = try makeSUT()
         let (_, second) = try makeSUT()
@@ -54,7 +65,8 @@ final class GitRepositoryLocatorTests: XCTestCase {
     // MARK: - Helpers
 
     private func makeSUT() throws -> (GitRepositoryLocator, URL) {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-git-\(UUID().uuidString)", isDirectory: true)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-git-\(UUID().uuidString)",
+            isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
         return (GitRepositoryLocator(), directory)
@@ -79,7 +91,8 @@ final class GitRepositoryLocatorTests: XCTestCase {
 
 final class FileManagerDirectoryInspectorTests: XCTestCase {
     func test_isDirectory_isTrueOnlyForAnExistingDirectory() throws {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-dir-\(UUID().uuidString)", isDirectory: true)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-dir-\(UUID().uuidString)",
+            isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
         let file = directory.appendingPathComponent("file")
@@ -94,7 +107,8 @@ final class FileManagerDirectoryInspectorTests: XCTestCase {
 
 final class FileHandleOutputTests: XCTestCase {
     func test_writeToAClosedHandle_doesNotCrashTheHost() throws {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-closed-\(UUID().uuidString)", isDirectory: true)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-closed-\(UUID().uuidString)",
+            isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
         let url = directory.appendingPathComponent("closed")
@@ -110,7 +124,8 @@ final class FileHandleOutputTests: XCTestCase {
     }
 
     func test_writeOutAndWriteError_gotoTheirOwnStreams() throws {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-out-\(UUID().uuidString)", isDirectory: true)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-out-\(UUID().uuidString)",
+            isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
         let outURL = directory.appendingPathComponent("out")
@@ -118,7 +133,8 @@ final class FileHandleOutputTests: XCTestCase {
         for url in [outURL, errURL] {
             XCTAssertTrue(FileManager.default.createFile(atPath: url.path, contents: nil), "the capture file exists")
         }
-        let sut = FileHandleOutput(standardOutput: try FileHandle(forWritingTo: outURL), standardError: try FileHandle(forWritingTo: errURL))
+        let sut = FileHandleOutput(standardOutput: try FileHandle(forWritingTo: outURL),
+            standardError: try FileHandle(forWritingTo: errURL))
 
         sut.writeOut("result\n")
         sut.writeError("problem\n")

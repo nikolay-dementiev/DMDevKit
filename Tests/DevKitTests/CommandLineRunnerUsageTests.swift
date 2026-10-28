@@ -77,7 +77,7 @@ final class CommandLineRunnerUsageTests: XCTestCase {
         let doubles = Doubles()
         let sut = CommandLineRunner(
             table: CommandTable(commands: [
-                Command(name: "alpha", scriptPath: "Scripts/alpha.sh", summary: "Do the alpha work"),
+                Command(name: "alpha", scriptPath: "Scripts/alpha.sh", summary: "Do the alpha work")
             ]),
             version: "0.1.2-test",
             resourceFolder: URL(fileURLWithPath: "/resources", isDirectory: true),
@@ -116,7 +116,8 @@ final class StandardCommandTableTests: XCTestCase {
 
         XCTAssertEqual(
             Set(names),
-            ["prepare-simulator", "lint", "check-lint-contract", "check-lint-tool", "swiftlint-fetch", "check-api", "check-release", "export-coverage", "count-tests"],
+            ["prepare-simulator", "lint", "check-lint-contract", "check-lint-tool", "swiftlint-fetch", "check-api",
+                "check-release", "export-coverage", "count-tests"],
             "every command of the README is in the table, and nothing else"
         )
         XCTAssertEqual(names.count, Set(names).count, "no name twice")
@@ -128,7 +129,8 @@ final class StandardCommandTableTests: XCTestCase {
         for command in CommandTable.standard.commands {
             let script = folder.appendingPathComponent(command.scriptPath)
 
-            XCTAssertTrue(FileManager.default.fileExists(atPath: script.path), "'\(command.name)' names \(command.scriptPath), which must be in the bundle")
+            XCTAssertTrue(FileManager.default.fileExists(atPath: script.path),
+                "'\(command.name)' names \(command.scriptPath), which must be in the bundle")
         }
     }
 }

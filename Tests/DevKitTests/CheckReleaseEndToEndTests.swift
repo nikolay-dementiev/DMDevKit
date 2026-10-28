@@ -16,7 +16,8 @@ final class CheckReleaseEndToEndTests: XCTestCase {
         XCTAssertEqual(result.status, 0, "every case holds: \(result.standardError.prefix(600))")
         XCTAssertEqual(ok, Self.selfTestCaseCount, "every case was reported: \(result.standardOutput.suffix(300))")
         XCTAssertTrue(
-            result.standardOutput.contains("check-release: self-test: \(Self.selfTestCaseCount) cases of the decisions of this script, all ok."),
+            result.standardOutput.contains("check-release: self-test: \(Self.selfTestCaseCount) cases of the decisions of this " +
+                "script, all ok."),
             "the summary line counts the same cases: \(result.standardOutput.suffix(200))"
         )
         XCTAssertFalse(result.standardError.contains("FAIL"), "no case failed")
@@ -28,7 +29,8 @@ final class CheckReleaseEndToEndTests: XCTestCase {
         let result = try sut.run(["--self-test", "1.1.0"])
 
         XCTAssertEqual(result.status, 2, "a caller mistake")
-        XCTAssertTrue(result.standardError.contains("usage: devkit check-release --self-test"), "the message names the command: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("usage: devkit check-release --self-test"),
+            "the message names the command: \(result.standardError)")
     }
 
     // MARK: - The decisions, with the real check-api --since on baselines committed at the tags
@@ -55,7 +57,8 @@ final class CheckReleaseEndToEndTests: XCTestCase {
 
         XCTAssertEqual(first.status, 1, "a removed line needs a new major version")
         XCTAssertTrue(first.standardError.contains("needs a new major version"), "the reason is named: \(first.standardError)")
-        XCTAssertTrue(first.standardError.contains("devkit check-api --since 1.0.0"), "the command that lists the lines is the one of devkit: \(first.standardError)")
+        XCTAssertTrue(first.standardError.contains("devkit check-api --since 1.0.0"),
+            "the command that lists the lines is the one of devkit: \(first.standardError)")
         XCTAssertEqual(second.status, 0, "a new major version allows it: \(second.standardError)")
     }
 
@@ -65,7 +68,8 @@ final class CheckReleaseEndToEndTests: XCTestCase {
         let result = try sut.run(["1.1.0"])
 
         XCTAssertEqual(result.status, 0, "lines that were only added pass: \(result.standardError)")
-        XCTAssertTrue(result.standardOutput.contains("lines were added to the interface since 1.0.0"), "the reminder is printed: \(result.standardOutput)")
+        XCTAssertTrue(result.standardOutput.contains("lines were added to the interface since 1.0.0"),
+            "the reminder is printed: \(result.standardOutput)")
         XCTAssertFalse(result.standardOutput.contains("::warning::"), "no annotation outside GitHub Actions")
     }
 
@@ -75,7 +79,8 @@ final class CheckReleaseEndToEndTests: XCTestCase {
         let result = try sut.run(["1.1.0"], adding: ["GITHUB_ACTIONS": "true"])
 
         XCTAssertEqual(result.status, 0, "still a pass: \(result.standardError)")
-        XCTAssertTrue(result.standardOutput.contains("::warning::check-release: lines were added to the interface"), "the annotation: \(result.standardOutput)")
+        XCTAssertTrue(result.standardOutput.contains("::warning::check-release: lines were added to the interface"),
+            "the annotation: \(result.standardOutput)")
     }
 
     func test_aBreakingHeading_failsUnderTheSameMajorAndPassesUnderANewOne() throws {
@@ -86,7 +91,8 @@ final class CheckReleaseEndToEndTests: XCTestCase {
         let second = try next.run(["2.0.0"])
 
         XCTAssertEqual(first.status, 1, "a declared change of behaviour needs a new major version")
-        XCTAssertTrue(first.standardError.contains("'### Breaking changes' subsection"), "the heading is named: \(first.standardError)")
+        XCTAssertTrue(first.standardError.contains("'### Breaking changes' subsection"),
+            "the heading is named: \(first.standardError)")
         XCTAssertEqual(second.status, 0, "a new major version allows it: \(second.standardError)")
     }
 
@@ -123,7 +129,8 @@ final class CheckReleaseEndToEndTests: XCTestCase {
         let result = try sut.run(["1.1"])
 
         XCTAssertEqual(result.status, 2, "a caller mistake")
-        XCTAssertTrue(result.standardError.contains("usage: devkit check-release [--notes] <version>"), "the message names the command: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("usage: devkit check-release [--notes] <version>"),
+            "the message names the command: \(result.standardError)")
         XCTAssertFalse(result.standardError.contains("Scripts/check-release.sh"), "no path of a script the caller cannot run")
     }
 
@@ -144,7 +151,8 @@ final class CheckReleaseEndToEndTests: XCTestCase {
         let result = try sut.run(["--notes", "9.9.9"])
 
         XCTAssertEqual(result.status, 1, "no notes under that heading")
-        XCTAssertTrue(result.standardError.contains("has no notes under a heading for 9.9.9"), "the version is named: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("has no notes under a heading for 9.9.9"),
+            "the version is named: \(result.standardError)")
     }
 
     func test_notes_withoutAChangelog_areStatusTwo() throws {
@@ -165,7 +173,8 @@ final class CheckReleaseEndToEndTests: XCTestCase {
         let result = try sut.run(["1.1.0"])
 
         XCTAssertEqual(result.status, 1, "the pod stays at the frozen version")
-        XCTAssertTrue(result.standardError.contains("the pod is frozen at 1.1.0"), "the frozen version of devkit.conf is named: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("the pod is frozen at 1.1.0"),
+            "the frozen version of devkit.conf is named: \(result.standardError)")
     }
 
     func test_theFrozenVersionIsTheOneOfDevkitConf() throws {
@@ -178,7 +187,8 @@ final class CheckReleaseEndToEndTests: XCTestCase {
     }
 
     func test_aPodspecNamedByDevkitConf_isTheOneThatIsRead() throws {
-        let sut = try makeSUT(conf: Self.conf(extra: "PODSPEC=\"Other.podspec\"\n"), release: Release(podspecName: "Other.podspec"))
+        let sut = try makeSUT(conf: Self.conf(extra: "PODSPEC=\"Other.podspec\"\n"),
+            release: Release(podspecName: "Other.podspec"))
 
         let result = try sut.run(["1.1.0"])
 
@@ -192,7 +202,8 @@ final class CheckReleaseEndToEndTests: XCTestCase {
         let result = try sut.run(["1.1.0"])
 
         XCTAssertEqual(result.status, 2, "a file that is not there is not a release that is not ready")
-        XCTAssertTrue(result.standardError.contains("the podspec Lib.podspec does not exist; PODSPEC in devkit.conf names it"), "devkit.conf names it: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("the podspec Lib.podspec does not exist; PODSPEC in devkit.conf names it"),
+            "devkit.conf names it: \(result.standardError)")
     }
 
     func test_missingSettings_areStatusTwoNamingTheKey() throws {
@@ -207,7 +218,8 @@ final class CheckReleaseEndToEndTests: XCTestCase {
         XCTAssertEqual(first.status, 2, "FROZEN_POD_VERSION is required")
         XCTAssertTrue(first.standardError.contains("FROZEN_POD_VERSION"), "the key is named: \(first.standardError)")
         XCTAssertEqual(second.status, 2, "without PODSPEC the podspec is named after MODULE")
-        XCTAssertTrue(second.standardError.contains("devkit.conf must set MODULE or PODSPEC"), "the keys are named: \(second.standardError)")
+        XCTAssertTrue(second.standardError.contains("devkit.conf must set MODULE or PODSPEC"),
+            "the keys are named: \(second.standardError)")
         XCTAssertEqual(third.status, 2, "a check that reads the settings needs the file")
         XCTAssertTrue(third.standardError.contains("devkit.conf"), "the file is named: \(third.standardError)")
     }
@@ -217,10 +229,12 @@ final class CheckReleaseEndToEndTests: XCTestCase {
     func test_withoutDevkit_theScriptRefusesToGuessTheRepository() throws {
         let sut = try makeSUT()
 
-        let result = try sut.fixture.capture("/bin/bash", [sut.resources.appendingPathComponent("Scripts/check-release.sh").path, "1.1.0"], in: sut.repository)
+        let result = try sut.fixture.capture("/bin/bash", [sut.resources.appendingPathComponent("Scripts/check-release.sh").path,
+            "1.1.0"], in: sut.repository)
 
         XCTAssertEqual(result.status, 2, "no DEVKIT_REPO_ROOT, no run")
-        XCTAssertTrue(result.standardError.contains("run it as 'devkit check-release'"), "the message names the command: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("run it as 'devkit check-release'"),
+            "the message names the command: \(result.standardError)")
     }
 
     func test_scriptsCopiedOutOfAnyRepository_stillCheckTheRepositoryTheyAreGiven() throws {
@@ -234,10 +248,14 @@ final class CheckReleaseEndToEndTests: XCTestCase {
         environment["DEVKIT_CONF"] = root + "/devkit.conf"
         environment["DEVKIT_WORK"] = root + "/.build/devkit"
 
-        let result = try sut.fixture.capture("/bin/bash", [moved.appendingPathComponent("Scripts/check-release.sh").path, "1.1.0"], in: sut.repository, environment: environment)
+        let result = try sut.fixture.capture("/bin/bash", [moved.appendingPathComponent("Scripts/check-release.sh").path,
+            "1.1.0"], in: sut.repository, environment: environment)
 
-        XCTAssertEqual(result.status, 1, "a script that looked at its own location would not find the repository, its changelog or its check-api: \(result.standardError)")
-        XCTAssertTrue(result.standardError.contains("needs a new major version"), "the comparison ran in the repository it was given: \(result.standardError)")
+        XCTAssertEqual(result.status, 1,
+            "a script that looked at its own location would not find the repository, its changelog or its check-api: " +
+            "\(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("needs a new major version"),
+            "the comparison ran in the repository it was given: \(result.standardError)")
     }
 
     func test_aCallerWhoExportsDevkitResources_cannotChooseAnotherCheckApi() throws {
@@ -250,8 +268,10 @@ final class CheckReleaseEndToEndTests: XCTestCase {
 
         let result = try sut.run(["1.1.0"], adding: ["DEVKIT_RESOURCES": impostor.path])
 
-        XCTAssertEqual(result.status, 1, "the check-api of devkit saw the removed line, not the stub that says all is well: \(result.standardError)")
-        XCTAssertTrue(result.standardError.contains("needs a new major version"), "the real comparison ran: \(result.standardError)")
+        XCTAssertEqual(result.status, 1,
+            "the check-api of devkit saw the removed line, not the stub that says all is well: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("needs a new major version"),
+            "the real comparison ran: \(result.standardError)")
     }
 
     // MARK: - Helpers
@@ -268,7 +288,8 @@ final class CheckReleaseEndToEndTests: XCTestCase {
         }
     }
 
-    /// What the scratch repository holds: the release before this one with its baseline at its tag, then the commit being released.
+    /// What the scratch repository holds: the release before this one with its baseline at its tag, then the commit being
+    /// released.
     struct Release {
         var version = "1.1.0"
         var previous = "1.0.0"
@@ -290,7 +311,8 @@ final class CheckReleaseEndToEndTests: XCTestCase {
         let resources: URL
 
         func run(_ arguments: [String], adding extra: [String: String] = [:]) throws -> Captured {
-            try fixture.capture(devkit.path, ["check-release"] + arguments, in: repository, environment: fixture.shimmedEnvironment(adding: extra))
+            try fixture.capture(devkit.path, ["check-release"] + arguments, in: repository,
+                environment: fixture.shimmedEnvironment(adding: extra))
         }
 
         func write(_ path: String, _ text: String) throws {
@@ -304,7 +326,7 @@ final class CheckReleaseEndToEndTests: XCTestCase {
                 "/usr/bin/env",
                 [
                     "git", "-c", "init.defaultBranch=main", "-c", "user.name=probe", "-c", "user.email=probe@example.invalid",
-                    "-c", "commit.gpgsign=false", "-c", "tag.gpgSign=false", "-c", "core.hooksPath=/dev/null",
+                    "-c", "commit.gpgsign=false", "-c", "tag.gpgSign=false", "-c", "core.hooksPath=/dev/null"
                 ] + arguments,
                 in: repository
             )
@@ -339,7 +361,8 @@ final class CheckReleaseEndToEndTests: XCTestCase {
         let breaking = release.subsection.isEmpty ? "" : "\(release.subsection)\n\n- a behaviour changed\n\n"
         try sut.write(
             "CHANGELOG.md",
-            "## [\(release.version)] - 2026-10-03\n\n\(breaking)- a change\n\n## [\(release.previous)] - 2025-10-11\n\n- earlier\n"
+            "## [\(release.version)] - 2026-10-03\n\n\(breaking)- a change\n\n## [\(release.previous)] - 2025-10-11\n\n- " +
+                "earlier\n"
         )
         try sut.write(release.podspecName, "Pod::Spec.new do |s|\n  s.version = '\(release.podspec)'\nend\n")
         try sut.write("Fixtures/API/public-interface.txt", release.baselineNow.text)

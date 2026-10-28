@@ -52,3 +52,5 @@ Swift 6.4 (0.1.0 did not: it could not find its scripts there). `check-release`,
 `coverage-gate.sh` is not a command: the three libraries keep three different versions of it. The CI installs `shellcheck` and `actionlint` from
 Homebrew at whatever version Homebrew has;
 the version is printed in the log and is not pinned.
+
+DMDevKit lints itself with its own `lint` command and the rules in `.swiftlint.yml` (the rules the three libraries share, without their layer rules). The CI job `lint` runs `devkit lint` and `devkit lint --analyze` on the log of `swift build --build-tests -v`; both must report no violation.

@@ -1,7 +1,8 @@
 import XCTest
 import Foundation
 
-/// `export-coverage` runs against an `xcrun` shim that answers the two `xccov view` calls from canned JSON, so no result bundle is needed.
+/// `export-coverage` runs against an `xcrun` shim that answers the two `xccov view` calls from canned JSON, so no result bundle
+/// is needed.
 final class ExportCoverageEndToEndTests: XCTestCase {
     static let expectedLcov = "TN:\nSF:Sources/Lib/A.swift\nDA:2,0\nDA:3,9\nLF:2\nLH:1\nend_of_record\n"
 
@@ -11,7 +12,8 @@ final class ExportCoverageEndToEndTests: XCTestCase {
         let result = try sut.run(["Fake.xcresult", "Lib", sut.output.path])
 
         XCTAssertEqual(result.status, 0, "the export succeeds: \(result.standardError)")
-        XCTAssertEqual(try String(contentsOf: sut.output, encoding: .utf8), Self.expectedLcov, "uncovered lines kept, duplicate lines merged by the larger count, tests and other targets left out")
+        XCTAssertEqual(try String(contentsOf: sut.output, encoding: .utf8), Self.expectedLcov,
+            "uncovered lines kept, duplicate lines merged by the larger count, tests and other targets left out")
         XCTAssertEqual(result.standardOutput, "export-coverage: wrote \(sut.output.path) (1 files)\n", "one summary line")
     }
 
@@ -19,10 +21,12 @@ final class ExportCoverageEndToEndTests: XCTestCase {
         let sut = try makeSUT()
         let folder = sut.repository.appendingPathComponent("Sources/Lib", isDirectory: true)
 
-        let result = try sut.fixture.capture(sut.devkit.path, ["export-coverage", "Fake.xcresult", "Lib", sut.output.path], in: folder, environment: sut.fixture.shimmedEnvironment())
+        let result = try sut.fixture.capture(sut.devkit.path, ["export-coverage", "Fake.xcresult", "Lib", sut.output.path],
+            in: folder, environment: sut.fixture.shimmedEnvironment())
 
         XCTAssertEqual(result.status, 0, "the root is the git top level: \(result.standardError)")
-        XCTAssertEqual(try String(contentsOf: sut.output, encoding: .utf8), Self.expectedLcov, "paths are relative to the repository, not to the folder")
+        XCTAssertEqual(try String(contentsOf: sut.output, encoding: .utf8), Self.expectedLcov,
+            "paths are relative to the repository, not to the folder")
     }
 
     func test_export_ofATargetThatIsNotInTheReport_isStatusOneAndWritesNothing() throws {
@@ -31,7 +35,8 @@ final class ExportCoverageEndToEndTests: XCTestCase {
         let result = try sut.run(["Fake.xcresult", "Other", sut.output.path])
 
         XCTAssertEqual(result.status, 1, "an empty report is not coverage")
-        XCTAssertTrue(result.standardError.contains("export-coverage: No executable library files found for Other"), "the target is named: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("export-coverage: No executable library files found for Other"),
+            "the target is named: \(result.standardError)")
         XCTAssertFalse(FileManager.default.fileExists(atPath: sut.output.path), "no file is written")
     }
 
@@ -42,17 +47,25 @@ final class ExportCoverageEndToEndTests: XCTestCase {
         let result = try sut.run(["Fake.xcresult", "Lib", sut.output.path])
 
         XCTAssertEqual(result.status, 1, "a failing xccov is not treated as coverage")
-        XCTAssertTrue(result.standardError.contains("xccov: no coverage"), "the failure of xccov is reported: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("xccov: no coverage"),
+            "the failure of xccov is reported: \(result.standardError)")
         XCTAssertFalse(FileManager.default.fileExists(atPath: sut.output.path), "no file is written")
     }
 
     func test_withoutDevkit_theScriptRefusesToGuessTheRepository() throws {
         let sut = try makeSUT()
 
-        let result = try sut.fixture.capture("/usr/bin/env", ["python3", "-B", sut.resources.appendingPathComponent("Scripts/export-coverage.py").path, "Fake.xcresult", "Lib", sut.output.path], in: sut.repository)
+        let script = sut.resources.appendingPathComponent("Scripts/export-coverage.py").path
+
+        let result = try sut.fixture.capture(
+            "/usr/bin/env",
+            ["python3", "-B", script, "Fake.xcresult", "Lib", sut.output.path],
+            in: sut.repository
+        )
 
         XCTAssertEqual(result.status, 2, "no DEVKIT_REPO_ROOT, no run")
-        XCTAssertTrue(result.standardError.contains("run it as 'devkit export-coverage'"), "the message names the command: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("run it as 'devkit export-coverage'"),
+            "the message names the command: \(result.standardError)")
     }
 
     func test_scriptCopiedOutOfAnyRepository_stillExportsTheRepositoryItIsGiven() throws {
@@ -62,9 +75,17 @@ final class ExportCoverageEndToEndTests: XCTestCase {
         var environment = sut.fixture.shimmedEnvironment()
         environment["DEVKIT_REPO_ROOT"] = EndToEndFixture.realPath(sut.repository)
 
-        let result = try sut.fixture.capture("/usr/bin/env", ["python3", "-B", moved.appendingPathComponent("Scripts/export-coverage.py").path, "Fake.xcresult", "Lib", sut.output.path], in: sut.repository, environment: environment)
+        let script = moved.appendingPathComponent("Scripts/export-coverage.py").path
 
-        XCTAssertEqual(result.status, 0, "a script that looked at its own location would not find the repository: \(result.standardError)")
+        let result = try sut.fixture.capture(
+            "/usr/bin/env",
+            ["python3", "-B", script, "Fake.xcresult", "Lib", sut.output.path],
+            in: sut.repository,
+            environment: environment
+        )
+
+        XCTAssertEqual(result.status, 0,
+            "a script that looked at its own location would not find the repository: \(result.standardError)")
         XCTAssertEqual(try String(contentsOf: sut.output, encoding: .utf8), Self.expectedLcov, "the repository it was given")
     }
 
@@ -78,7 +99,8 @@ final class ExportCoverageEndToEndTests: XCTestCase {
         var output: URL { fixture.directory.appendingPathComponent("out/lcov.info") }
 
         func run(_ arguments: [String]) throws -> Captured {
-            try fixture.capture(devkit.path, ["export-coverage"] + arguments, in: repository, environment: fixture.shimmedEnvironment())
+            try fixture.capture(devkit.path, ["export-coverage"] + arguments, in: repository,
+                environment: fixture.shimmedEnvironment())
         }
     }
 
@@ -118,12 +140,13 @@ final class ExportCoverageEndToEndTests: XCTestCase {
         esac
 
         """)
-        return SUT(fixture: fixture, repository: repository, devkit: EndToEndFixture.devkitURL(for: Self.self), resources: EndToEndFixture.resourceFolder(for: Self.self))
+        return SUT(fixture: fixture, repository: repository, devkit: EndToEndFixture.devkitURL(for: Self.self),
+            resources: EndToEndFixture.resourceFolder(for: Self.self))
     }
 }
 
-/// The check of the exporter that the libraries kept next to it (`Tests/Python/test-export-coverage.py`) runs here, against the exporter
-/// of the resource folder; each mutant of the exporter must turn it red.
+/// The check of the exporter that the libraries kept next to it (`Tests/Python/test-export-coverage.py`) runs here, against the
+/// exporter of the resource folder; each mutant of the exporter must turn it red.
 final class ExportCoverageCheckTests: XCTestCase {
     func test_theCheckOfTheExporter_passes() throws {
         let sut = try makeSUT()
@@ -135,7 +158,8 @@ final class ExportCoverageCheckTests: XCTestCase {
     }
 
     func test_keepingTheSmallerCountOfADuplicateLine_failsTheCheck() throws {
-        try assertCheckFails("lines[line] = max(lines.get(line, 0), count)", "lines[line] = min(lines.get(line, 0), count)", failing: "test_preserves_uncovered_lines_and_merges_duplicate_image_lines")
+        try assertCheckFails("lines[line] = max(lines.get(line, 0), count)", "lines[line] = min(lines.get(line, 0), count)",
+            failing: "test_preserves_uncovered_lines_and_merges_duplicate_image_lines")
     }
 
     func test_acceptingANegativeCount_failsTheCheck() throws {
@@ -143,7 +167,8 @@ final class ExportCoverageCheckTests: XCTestCase {
     }
 
     func test_keepingFilesOutsideTheSourceRoot_failsTheCheck() throws {
-        try assertCheckFails("if source_root in path.parents and file", "if file", failing: "test_filters_tests_dependencies_and_other_targets")
+        try assertCheckFails("if source_root in path.parents and file", "if file",
+            failing: "test_filters_tests_dependencies_and_other_targets")
     }
 
     func test_acceptingAFileWithoutArchiveLines_failsTheCheck() throws {
@@ -151,11 +176,13 @@ final class ExportCoverageCheckTests: XCTestCase {
     }
 
     func test_exportingAnotherTargetOfTheReport_failsTheCheck() throws {
-        try assertCheckFails("if entry[\"name\"].split(\".\")[0] != target:", "if False:", failing: "test_filters_tests_dependencies_and_other_targets")
+        try assertCheckFails("if entry[\"name\"].split(\".\")[0] != target:", "if False:",
+            failing: "test_filters_tests_dependencies_and_other_targets")
     }
 
     func test_acceptingAnEmptyReport_failsTheCheck() throws {
-        try assertCheckFails("    if not paths:\n", "    if False:\n", failing: "test_missing_target_fails_instead_of_producing_empty_report")
+        try assertCheckFails("    if not paths:\n", "    if False:\n",
+            failing: "test_missing_target_fails_instead_of_producing_empty_report")
     }
 
     // MARK: - Helpers
@@ -176,12 +203,22 @@ final class ExportCoverageCheckTests: XCTestCase {
         let fixture = try EndToEndFixture()
         let directory = fixture.directory
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
-        let root = URL(fileURLWithPath: "\(#filePath)").deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let root = URL(fileURLWithPath: "\(#filePath)")
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
         let exporter = EndToEndFixture.resourceFolder(for: Self.self).appendingPathComponent("Scripts/export-coverage.py")
-        return SUT(fixture: fixture, exporter: exporter, check: root.appendingPathComponent("Tests/Python/test-export-coverage.py"))
+        return SUT(fixture: fixture, exporter: exporter,
+            check: root.appendingPathComponent("Tests/Python/test-export-coverage.py"))
     }
 
-    private func assertCheckFails(_ old: String, _ new: String, failing: String, file: StaticString = #filePath, line: UInt = #line) throws {
+    private func assertCheckFails(
+        _ old: String,
+        _ new: String,
+        failing: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
         let sut = try makeSUT()
         let original = try String(contentsOf: sut.exporter, encoding: .utf8)
         guard original.components(separatedBy: old).count - 1 == 1 else {
@@ -194,6 +231,8 @@ final class ExportCoverageCheckTests: XCTestCase {
         let result = try sut.runCheck(exporter: mutant)
 
         XCTAssertNotEqual(result.status, 0, "the check of the mutated exporter fails", file: file, line: line)
-        XCTAssertTrue(result.standardError.contains("FAIL: \(failing)") || result.standardError.contains("ERROR: \(failing)"), "the check that names this behaviour is the one that fails: \(result.standardError.suffix(400))", file: file, line: line)
+        XCTAssertTrue(result.standardError.contains("FAIL: \(failing)") || result.standardError.contains("ERROR: \(failing)"),
+            "the check that names this behaviour is the one that fails: " +
+            "\(result.standardError.suffix(400))", file: file, line: line)
     }
 }

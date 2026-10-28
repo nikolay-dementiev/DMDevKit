@@ -15,17 +15,20 @@ public struct FileHandleOutput: TextOutput {
         self.standardError = standardError
     }
 
-    /// Writes to standard output. A closed handle or a broken pipe loses the text: it is logged, and `devkit` goes on to its exit status.
+    /// Writes to standard output. A closed handle or a broken pipe loses the text: it is logged, and `devkit` goes on to its exit
+    /// status.
     public func writeOut(_ text: String) {
         write(text, to: standardOutput, name: "standard output")
     }
 
-    /// Writes to standard error. A closed handle or a broken pipe loses the text: it is logged, and `devkit` goes on to its exit status.
+    /// Writes to standard error. A closed handle or a broken pipe loses the text: it is logged, and `devkit` goes on to its exit
+    /// status.
     public func writeError(_ text: String) {
         write(text, to: standardError, name: "standard error")
     }
 
-    // `write(_: Data)` raises an Objective-C exception that Swift cannot catch; the throwing form can fail without taking the host down.
+    // `write(_: Data)` raises an Objective-C exception that Swift cannot catch; the throwing form can fail without taking the
+    // host down.
     private func write(_ text: String, to handle: FileHandle, name: String) {
         do {
             try handle.write(contentsOf: Data(text.utf8))
