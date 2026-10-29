@@ -218,6 +218,25 @@ final class CheckWrappersEndToEndTests: XCTestCase {
             message: "lint.sh did not pass standard input to swift: the caller sent 23 bytes and swift read 0")
     }
 
+    // MARK: - The interpreter
+
+    func test_aWrapperThatAsksForShInsteadOfBash_failsTheInterpreterCheck() throws {
+        let sut = try makeSUT(overrides: ["lint.sh": try mutant(of: "lint", replacing: "#!/bin/bash", with: "#!/bin/sh")])
+
+        let result = try sut.run(["check-wrappers"])
+
+        assertOnlyLintFails(result, message: "lint.sh starts with [#!/bin/sh], not [#!/bin/bash]")
+    }
+
+    func test_aWrapperThatAsksForTheBashOfThePath_failsTheInterpreterCheck() throws {
+        let sut = try makeSUT(overrides: ["lint.sh": try mutant(of: "lint", replacing: "#!/bin/bash",
+            with: "#!/usr/bin/env bash")])
+
+        let result = try sut.run(["check-wrappers"])
+
+        assertOnlyLintFails(result, message: "lint.sh starts with [#!/usr/bin/env bash], not [#!/bin/bash]")
+    }
+
     // MARK: - Helpers
 
     private func mutant(of stem: String, replacing original: String, with replacement: String) throws -> String {
