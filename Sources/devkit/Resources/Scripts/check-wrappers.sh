@@ -27,6 +27,10 @@
 #    not set at all. A wrapper that unsets it, or sets a default of its own, fails.
 # 7. Standard input reaches swift byte for byte, bytes that are not text included. A wrapper that
 #    reads it from /dev/null fails.
+# 8. The first line is exactly #!/bin/bash. A text check on purpose: on macOS /bin/sh is bash in POSIX
+#    mode and runs a wrapper that uses ${BASH_SOURCE[0]}, which dash does not, so running the wrapper
+#    alone would pass a #!/bin/sh wrapper that breaks on a Linux runner. #!/usr/bin/env bash is
+#    refused too: a wrapper must not depend on the bash that the PATH of the caller finds.
 #
 # All of it is checked in a scratch repository whose path holds a space, so that a wrapper which
 # does not quote the root it changes to, or the path of its own folder, fails.
@@ -225,6 +229,12 @@ for STEM in "${STEMS[@]}"; do
         fi
     done
     CALLER_DEVELOPER_DIR="$DEVELOPER_DIR_SENTINEL"
+
+    CHECKS=$((CHECKS + 1))
+    IFS= read -r FIRST_LINE < "$SCRIPT" || true
+    if [ "$FIRST_LINE" != "#!/bin/bash" ]; then
+        fail "$STEM.sh starts with [$FIRST_LINE], not [#!/bin/bash]"
+    fi
 
     CHECKS=$((CHECKS + 1))
     run "$SCRIPT" "$WORK/elsewhere" 0
