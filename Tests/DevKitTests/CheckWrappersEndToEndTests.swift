@@ -162,6 +162,27 @@ final class CheckWrappersEndToEndTests: XCTestCase {
             "the status still passes through, so only the exec check reports it: \(result.standardError)")
     }
 
+    // MARK: - A repository whose path holds a space
+
+    func test_aWrapperThatDoesNotQuoteTheRootItChangesTo_failsWhereThePathHoldsASpace() throws {
+        let sut = try makeSUT(overrides: ["lint.sh": try mutant(of: "lint", replacing: "cd \"$ROOT\"", with: "cd $ROOT")])
+
+        let result = try sut.run(["check-wrappers"])
+
+        assertOnlyLintFails(result, message: "lint.sh started in another directory: expected the call")
+        XCTAssertTrue(result.standardError.contains("a repo with spaces"),
+            "the scratch repository the check uses has a space in its path: \(result.standardError)")
+    }
+
+    func test_aWrapperThatDoesNotQuoteItsOwnPath_failsWhereThePathHoldsASpace() throws {
+        let unquoted = try mutant(of: "lint", replacing: "dirname \"${BASH_SOURCE[0]}\"", with: "dirname ${BASH_SOURCE[0]}")
+        let sut = try makeSUT(overrides: ["lint.sh": unquoted])
+
+        let result = try sut.run(["check-wrappers"])
+
+        assertOnlyLintFails(result, message: "lint.sh started in another directory: expected the call")
+    }
+
     // MARK: - Helpers
 
     private func mutant(of stem: String, replacing original: String, with replacement: String) throws -> String {
