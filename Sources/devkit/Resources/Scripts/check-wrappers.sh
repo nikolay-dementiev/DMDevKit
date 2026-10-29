@@ -28,8 +28,9 @@
 # 7. Standard input reaches swift byte for byte, bytes that are not text included. A wrapper that
 #    reads it from /dev/null fails.
 # 8. The first line is exactly #!/bin/bash. A text check on purpose: on macOS /bin/sh is bash in POSIX
-#    mode and runs a wrapper that uses ${BASH_SOURCE[0]}, which dash does not, so running the wrapper
-#    alone would pass a #!/bin/sh wrapper that breaks on a Linux runner. #!/usr/bin/env bash is
+#    mode and runs a wrapper that finds its own folder with a variable only bash has, which dash does
+#    not, so running the wrapper alone would pass a #!/bin/sh wrapper that breaks on a Linux runner.
+#    #!/usr/bin/env bash is
 #    refused too: a wrapper must not depend on the bash that the PATH of the caller finds.
 #
 # All of it is checked in a scratch repository whose path holds a space, so that a wrapper which
