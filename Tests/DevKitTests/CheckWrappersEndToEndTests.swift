@@ -206,6 +206,18 @@ final class CheckWrappersEndToEndTests: XCTestCase {
             "[set:/Applications/Xcode.app/Contents/Developer]")
     }
 
+    // MARK: - Standard input
+
+    func test_aWrapperThatReadsItsInputFromNothing_failsTheInputCheck() throws {
+        let silenced = try mutant(of: "lint", replacing: "\"$@\"\n", with: "\"$@\" < /dev/null\n")
+        let sut = try makeSUT(overrides: ["lint.sh": silenced])
+
+        let result = try sut.run(["check-wrappers"])
+
+        assertOnlyLintFails(result,
+            message: "lint.sh did not pass standard input to swift: the caller sent 23 bytes and swift read 0")
+    }
+
     // MARK: - Helpers
 
     private func mutant(of stem: String, replacing original: String, with replacement: String) throws -> String {
