@@ -126,6 +126,14 @@ final class CheckWrappersEndToEndTests: XCTestCase {
         assertOnlyLintFails(result, message: "lint.sh started in another directory: expected the call")
     }
 
+    func test_aWrapperThatAddsAnArgumentWhenGivenNone_failsTheNoArgumentCheck() throws {
+        let sut = try makeSUT(overrides: ["lint.sh": try mutant(of: "lint", replacing: "\"$@\"", with: "\"${@:-extra}\"")])
+
+        let result = try sut.run(["check-wrappers"])
+
+        assertOnlyLintFails(result, message: "lint.sh started from its own folder with no argument: expected the call")
+    }
+
     func test_aWrapperThatPrintsALineOfItsOwn_failsTheStreamsCheck() throws {
         let printing = try mutant(of: "lint", replacing: "exec swift", with: "echo hello\nexec swift")
         let sut = try makeSUT(overrides: ["lint.sh": printing])
