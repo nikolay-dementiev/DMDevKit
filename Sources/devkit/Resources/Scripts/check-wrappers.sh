@@ -25,6 +25,8 @@
 #    signal sent to the script reaches devkit.
 # 6. DEVELOPER_DIR, the Xcode a job selects, reaches swift as the caller had it: set to a value, and
 #    not set at all. A wrapper that unsets it, or sets a default of its own, fails.
+# 7. Standard input reaches swift byte for byte, bytes that are not text included. A wrapper that
+#    reads it from /dev/null fails.
 #
 # All of it is checked in a scratch repository whose path holds a space, so that a wrapper which
 # does not quote the root it changes to, or the path of its own folder, fails.
@@ -119,6 +121,7 @@ cat > "$WORK/bin/swift" <<'SHIM'
 } >> "$SHIM_LOG"
 printf '%s' "$$" > "$SHIM_PID"
 if [ -n "${DEVELOPER_DIR+x}" ]; then printf 'set:%s' "$DEVELOPER_DIR"; else printf 'unset'; fi > "$SHIM_DEVELOPER_DIR"
+cat > "$SHIM_STDIN"
 echo "out from the shim"
 echo "err from the shim" >&2
 exit "${SHIM_STATUS:-0}"
@@ -141,14 +144,15 @@ run() {
     local script="$1" directory="$2" shim_status="$3"
     shift 3
     : > "$WORK/log"
-    rm -f "$WORK/launcher.pid" "$WORK/shim.pid" "$WORK/shim.developer-dir"
+    rm -f "$WORK/launcher.pid" "$WORK/shim.pid" "$WORK/shim.developer-dir" "$WORK/shim.stdin"
     STATUS=0
     (cd "$directory" &&
         if [ "$CALLER_DEVELOPER_DIR" = unset ]; then unset DEVELOPER_DIR; else export DEVELOPER_DIR="$CALLER_DEVELOPER_DIR"; fi &&
         PATH="$WORK/bin:$PATH" SHIM_LOG="$WORK/log" SHIM_PID="$WORK/shim.pid" \
-        SHIM_DEVELOPER_DIR="$WORK/shim.developer-dir" SHIM_STATUS="$shim_status" LAUNCHER_PID="$WORK/launcher.pid" \
+        SHIM_DEVELOPER_DIR="$WORK/shim.developer-dir" SHIM_STDIN="$WORK/shim.stdin" SHIM_STATUS="$shim_status" \
+        LAUNCHER_PID="$WORK/launcher.pid" \
         sh -c 'echo $$ > "$LAUNCHER_PID"; exec "$@"' sh "$script" "$@" \
-        > "$WORK/stdout" 2> "$WORK/stderr") || STATUS=$?
+        < "$WORK/stdin.bytes" > "$WORK/stdout" 2> "$WORK/stderr") || STATUS=$?
 }
 
 # expect <command> [arguments...]: the one record that a faithful script leaves, in $WORK/expected.
@@ -164,6 +168,7 @@ show() {
     tr '\0' ' ' < "$1"
 }
 
+printf 'in\0put\nno final newline' > "$WORK/stdin.bytes"
 printf 'out from the shim\n' > "$WORK/expected.out"
 printf 'err from the shim\n' > "$WORK/expected.err"
 NEWLINE_ARGUMENT=$'two\nlines'
@@ -220,6 +225,12 @@ for STEM in "${STEMS[@]}"; do
         fi
     done
     CALLER_DEVELOPER_DIR="$DEVELOPER_DIR_SENTINEL"
+
+    CHECKS=$((CHECKS + 1))
+    run "$SCRIPT" "$WORK/elsewhere" 0
+    if ! cmp -s "$WORK/shim.stdin" "$WORK/stdin.bytes"; then
+        fail "$STEM.sh did not pass standard input to swift: the caller sent $(wc -c < "$WORK/stdin.bytes" | tr -d ' ') bytes and swift read $(wc -c < "$WORK/shim.stdin" 2> /dev/null | tr -d ' ' || true)"
+    fi
 
     if [ "$FAILURES" -eq "$BEFORE" ]; then
         echo "check-wrappers: ok   $STEM.sh forwards its arguments, directory, status and streams"
