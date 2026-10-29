@@ -125,12 +125,13 @@ final class StandardCommandTableTests: XCTestCase {
 
     func test_everyScriptOfTheScriptsFolder_isACommandOfTheTable() throws {
         let scripts = EndToEndFixture.resourceFolder(for: Self.self).appendingPathComponent("Scripts", isDirectory: true)
-        let files = try FileManager.default.contentsOfDirectory(atPath: scripts.path).filter { $0 != "lib" }
+        let files = try FileManager.default.contentsOfDirectory(atPath: scripts.path).filter { $0 != "lib" && !$0.hasPrefix(".") }
         let paths = Set(CommandTable.standard.commands.map(\.scriptPath))
 
         for file in files {
             XCTAssertTrue(paths.contains("Scripts/\(file)"),
-                "'\(file)' is in the bundle but no command runs it; check-wrappers finds a command by its script")
+                "'\(file)' is in the bundle but no command runs it; check-wrappers takes a name for a command when a script " +
+                "of that name is in the bundle")
         }
     }
 
