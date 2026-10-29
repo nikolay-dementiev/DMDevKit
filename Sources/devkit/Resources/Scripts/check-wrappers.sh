@@ -91,12 +91,17 @@ for FILE in "${FILES[@]}"; do
     STEMS+=("$STEM")
 done
 
-WORK="$(mktemp -d "${TMPDIR:-/tmp}/check-wrappers.XXXXXX")"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/check-wrappers.XXXXXX")" || {
+    echo "check-wrappers: cannot make a scratch folder in ${TMPDIR:-/tmp}" >&2
+    exit 2
+}
 # shellcheck disable=SC2329  # invoked by the trap below
 cleanup() {  # The EXIT trap below calls it. skipcq: SH-2329
     rm -rf "$WORK"
 }
 trap cleanup EXIT
+# The runs below change directory before they open their files, so the folder must not depend on where they start.
+WORK="$(cd "$WORK" && pwd -P)"
 
 FAILURES=0
 CHECKS=0
@@ -106,9 +111,15 @@ fail() {  # <message>
 }
 
 REPO_DIR="$WORK/a repo with spaces"
-mkdir "$WORK/bin" "$REPO_DIR" "$REPO_DIR/Scripts" "$REPO_DIR/Tools" "$WORK/elsewhere"
+mkdir "$WORK/bin" "$REPO_DIR" "$REPO_DIR/Scripts" "$REPO_DIR/Tools" "$WORK/elsewhere" || {
+    echo "check-wrappers: cannot make the scratch repository in $WORK" >&2
+    exit 2
+}
 for FILE in "${FILES[@]}"; do
-    cp -p "$FOLDER/$FILE" "$REPO_DIR/Scripts/$FILE"
+    cp -p "$FOLDER/$FILE" "$REPO_DIR/Scripts/$FILE" || {
+        echo "check-wrappers: cannot copy $FILE into the scratch repository" >&2
+        exit 2
+    }
 done
 REPO="$(cd "$REPO_DIR" && pwd -P)"
 
@@ -239,7 +250,8 @@ for STEM in "${STEMS[@]}"; do
     CHECKS=$((CHECKS + 1))
     run "$SCRIPT" "$WORK/elsewhere" 0
     if ! cmp -s "$WORK/shim.stdin" "$WORK/stdin.bytes"; then
-        fail "$STEM.sh did not pass standard input to swift: the caller sent $(wc -c < "$WORK/stdin.bytes" | tr -d ' ') bytes and swift read $(wc -c < "$WORK/shim.stdin" 2> /dev/null | tr -d ' ' || true)"
+        GOT="$({ wc -c < "$WORK/shim.stdin"; } 2> /dev/null | tr -d ' ' || true)"
+        fail "$STEM.sh did not pass standard input to swift: the caller sent $(wc -c < "$WORK/stdin.bytes" | tr -d ' ') bytes and swift read ${GOT:-0}"
     fi
 
     if [ "$FAILURES" -eq "$BEFORE" ]; then
