@@ -2,8 +2,8 @@ import XCTest
 import Foundation
 
 /// `check-wrappers` copies the listed wrappers into a scratch repository, puts a recording `swift` first on the PATH and checks
-/// that each wrapper forwards faithfully. The wrappers here are the real ones of the libraries, so that the clean set is what
-/// the command has to accept.
+/// that each wrapper forwards faithfully. The wrappers here have the shape of the real ones of the libraries, so that the
+/// clean set is what the command has to accept.
 final class CheckWrappersEndToEndTests: XCTestCase {
     static let stems = ["lint", "check-lint-contract", "check-lint-tool", "prepare-simulator"]
     static let fileNames = stems.map { "\($0).sh" }
@@ -100,10 +100,22 @@ final class CheckWrappersEndToEndTests: XCTestCase {
         XCTAssertEqual(result.standardOutput, "", "nothing was checked")
     }
 
+    func test_anEntryThatIsAPathAndNotAFileName_isStatusTwo() throws {
+        for entry in ["sub/lint.sh", "../lint.sh", "/tmp/lint.sh", ".sh"] {
+            let sut = try makeSUT(listed: [entry], present: [])
+
+            let result = try sut.run(["check-wrappers"])
+
+            XCTAssertEqual(result.status, 2, "'\(entry)' is not a file name of the folder")
+            XCTAssertTrue(result.standardError.contains("WRAPPERS entry '\(entry)' must be a file name of the folder"),
+                "the entry is named: \(result.standardError)")
+        }
+    }
+
     // MARK: - A wrapper that does not forward faithfully, one property at a time
 
     func test_aWrapperThatDoesNotKeepTheArgumentsApart_failsTheForwardingCheck() throws {
-        let sut = try makeSUT(overrides: ["lint.sh": try mutant(of: "lint", replacing: "\"$@\"", with: "$*")])
+        let sut = try makeSUT(overrides: ["lint.sh": mutant(of: "lint", replacing: "\"$@\"", with: "$*")])
 
         let result = try sut.run(["check-wrappers"])
 
@@ -111,23 +123,25 @@ final class CheckWrappersEndToEndTests: XCTestCase {
     }
 
     func test_aWrapperThatStaysInTheDirectoryItWasStartedIn_failsTheForwardingCheck() throws {
-        let sut = try makeSUT(overrides: ["lint.sh": try mutant(of: "lint", replacing: "cd \"$ROOT\" || exit 70\n", with: "")])
+        let sut = try makeSUT(overrides: ["lint.sh": mutant(of: "lint", replacing: "cd \"$ROOT\" || exit 70\n", with: "")])
 
         let result = try sut.run(["check-wrappers"])
 
-        assertOnlyLintFails(result, message: "lint.sh started in another directory: expected the call")
+        assertOnlyLintFails(result, message: "lint.sh started in another directory: expected the call",
+            alsoFiring: ["lint.sh started from its own folder with no argument"])
     }
 
     func test_aWrapperThatNamesAnotherCommand_failsTheForwardingCheck() throws {
-        let sut = try makeSUT(overrides: ["lint.sh": try mutant(of: "lint", replacing: "devkit lint", with: "devkit lnit")])
+        let sut = try makeSUT(overrides: ["lint.sh": mutant(of: "lint", replacing: "devkit lint", with: "devkit lnit")])
 
         let result = try sut.run(["check-wrappers"])
 
-        assertOnlyLintFails(result, message: "lint.sh started in another directory: expected the call")
+        assertOnlyLintFails(result, message: "lint.sh started in another directory: expected the call",
+            alsoFiring: ["lint.sh started from its own folder with no argument"])
     }
 
     func test_aWrapperThatAddsAnArgumentWhenGivenNone_failsTheNoArgumentCheck() throws {
-        let sut = try makeSUT(overrides: ["lint.sh": try mutant(of: "lint", replacing: "\"$@\"", with: "\"${@:-extra}\"")])
+        let sut = try makeSUT(overrides: ["lint.sh": mutant(of: "lint", replacing: "\"$@\"", with: "\"${@:-extra}\"")])
 
         let result = try sut.run(["check-wrappers"])
 
@@ -135,25 +149,64 @@ final class CheckWrappersEndToEndTests: XCTestCase {
     }
 
     func test_aWrapperThatPrintsALineOfItsOwn_failsTheStreamsCheck() throws {
-        let printing = try mutant(of: "lint", replacing: "exec swift", with: "echo hello\nexec swift")
+        let printing = mutant(of: "lint", replacing: "exec swift", with: "echo hello\nexec swift")
         let sut = try makeSUT(overrides: ["lint.sh": printing])
 
         let result = try sut.run(["check-wrappers"])
 
-        assertOnlyLintFails(result, message: "lint.sh printed [hello\nout from the shim] on standard output")
+        assertOnlyLintFails(result, message: "lint.sh printed [hello",
+            alsoFiring: ["lint.sh started with arguments printed"])
+    }
+
+    func test_aWrapperThatMergesStandardErrorIntoStandardOutput_failsTheStreamsCheck() throws {
+        let sut = try makeSUTWith(lint: mutant(of: "lint", replacing: "\"$@\"\n", with: "\"$@\" 2>&1\n"))
+
+        let result = try sut.run(["check-wrappers"])
+
+        assertOnlyLintFails(result, message: "lint.sh started with arguments printed",
+            alsoFiring: ["lint.sh printed ["])
+        XCTAssertTrue(result.standardError.contains("[] on standard error"),
+            "the line of the shim on standard error went to standard output: \(result.standardError)")
+    }
+
+    func test_aWrapperThatPrintsALineOnStandardErrorOfItsOwn_failsTheStreamsCheck() throws {
+        let sut = try makeSUTWith(lint: mutant(of: "lint", replacing: "exec swift", with: "echo extra >&2\nexec swift"))
+
+        let result = try sut.run(["check-wrappers"])
+
+        assertOnlyLintFails(result, message: "lint.sh started with arguments printed",
+            alsoFiring: ["lint.sh printed ["])
+        XCTAssertTrue(result.standardError.contains("[extra\nerr from the shim] on standard error"),
+            "the extra line is on standard error and standard output is the shim's: \(result.standardError)")
+    }
+
+    func test_aWrapperThatPrintsOnlyWhenTheShimFails_failsTheStreamsCheckForThatStatus() throws {
+        let afterwards = mutant(of: "lint", replacing: "exec swift", with: "swift")
+            + "status=$?\nif [ \"$status\" -ne 0 ]; then echo oops; fi\nexit \"$status\"\n"
+        let sut = try makeSUTWith(lint: afterwards)
+
+        let result = try sut.run(["check-wrappers"])
+
+        // Without exec the wrapper cannot print after the shim, so the exec check reports it as well.
+        assertOnlyLintFails(result, message: "lint.sh printed [out from the shim",
+            alsoFiring: ["lint.sh did not exec swift"])
+        XCTAssertTrue(result.standardError.contains("[out from the shim\noops] on standard output when the shim ended with 1"),
+            "it printed nothing extra while the shim ended with 0: \(result.standardError)")
     }
 
     func test_aWrapperThatEndsWithAnotherStatus_failsTheStatusCheck() throws {
-        let sut = try makeSUT(overrides: ["lint.sh": try mutant(of: "lint", replacing: "exec swift", with: "swift")
+        let sut = try makeSUT(overrides: ["lint.sh": mutant(of: "lint", replacing: "exec swift", with: "swift")
             + "exit 0\n"])
 
         let result = try sut.run(["check-wrappers"])
 
-        assertOnlyLintFails(result, message: "lint.sh ended with status 0 where the shim ended with 1")
+        // Without exec the wrapper cannot end with another status and still pass the exec check, so both report it.
+        assertOnlyLintFails(result, message: "lint.sh ended with status 0 where the shim ended with 1",
+            alsoFiring: ["lint.sh did not exec swift", "lint.sh ended with status 0 where the shim ended with "])
     }
 
     func test_aWrapperThatDoesNotExec_failsOnlyTheExecCheck() throws {
-        let sut = try makeSUT(overrides: ["lint.sh": try mutant(of: "lint", replacing: "exec swift", with: "swift")])
+        let sut = try makeSUT(overrides: ["lint.sh": mutant(of: "lint", replacing: "exec swift", with: "swift")])
 
         let result = try sut.run(["check-wrappers"])
 
@@ -165,28 +218,28 @@ final class CheckWrappersEndToEndTests: XCTestCase {
     // MARK: - A repository whose path holds a space
 
     func test_aWrapperThatDoesNotQuoteTheRootItChangesTo_failsWhereThePathHoldsASpace() throws {
-        let sut = try makeSUT(overrides: ["lint.sh": try mutant(of: "lint", replacing: "cd \"$ROOT\"", with: "cd $ROOT")])
+        let sut = try makeSUT(overrides: ["lint.sh": mutant(of: "lint", replacing: "cd \"$ROOT\"", with: "cd $ROOT")])
 
         let result = try sut.run(["check-wrappers"])
 
-        assertOnlyLintFails(result, message: "lint.sh started in another directory: expected the call")
+        assertOnlyLintFails(result, message: "lint.sh started in another directory: expected the call", alsoFiring: nil)
         XCTAssertTrue(result.standardError.contains("a repo with spaces"),
             "the scratch repository the check uses has a space in its path: \(result.standardError)")
     }
 
     func test_aWrapperThatDoesNotQuoteItsOwnPath_failsWhereThePathHoldsASpace() throws {
-        let unquoted = try mutant(of: "lint", replacing: "dirname \"${BASH_SOURCE[0]}\"", with: "dirname ${BASH_SOURCE[0]}")
+        let unquoted = mutant(of: "lint", replacing: "dirname \"${BASH_SOURCE[0]}\"", with: "dirname ${BASH_SOURCE[0]}")
         let sut = try makeSUT(overrides: ["lint.sh": unquoted])
 
         let result = try sut.run(["check-wrappers"])
 
-        assertOnlyLintFails(result, message: "lint.sh started in another directory: expected the call")
+        assertOnlyLintFails(result, message: "lint.sh started in another directory: expected the call", alsoFiring: nil)
     }
 
     // MARK: - The Xcode a job selects
 
     func test_aWrapperThatUnsetsDeveloperDir_failsTheDeveloperDirCheck() throws {
-        let sut = try makeSUT(overrides: ["lint.sh": try mutant(of: "lint", replacing: "exec swift",
+        let sut = try makeSUT(overrides: ["lint.sh": mutant(of: "lint", replacing: "exec swift",
             with: "unset DEVELOPER_DIR\nexec swift")])
 
         let result = try sut.run(["check-wrappers"])
@@ -196,7 +249,7 @@ final class CheckWrappersEndToEndTests: XCTestCase {
     }
 
     func test_aWrapperThatSetsADefaultDeveloperDir_failsWhereTheCallerHasNone() throws {
-        let defaulting = try mutant(of: "lint", replacing: "exec swift", with:
+        let defaulting = mutant(of: "lint", replacing: "exec swift", with:
             "export DEVELOPER_DIR=\"${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}\"\nexec swift")
         let sut = try makeSUT(overrides: ["lint.sh": defaulting])
 
@@ -209,7 +262,7 @@ final class CheckWrappersEndToEndTests: XCTestCase {
     // MARK: - Standard input
 
     func test_aWrapperThatReadsItsInputFromNothing_failsTheInputCheck() throws {
-        let silenced = try mutant(of: "lint", replacing: "\"$@\"\n", with: "\"$@\" < /dev/null\n")
+        let silenced = mutant(of: "lint", replacing: "\"$@\"\n", with: "\"$@\" < /dev/null\n")
         let sut = try makeSUT(overrides: ["lint.sh": silenced])
 
         let result = try sut.run(["check-wrappers"])
@@ -221,7 +274,7 @@ final class CheckWrappersEndToEndTests: XCTestCase {
     // MARK: - The interpreter
 
     func test_aWrapperThatAsksForShInsteadOfBash_failsTheInterpreterCheck() throws {
-        let sut = try makeSUT(overrides: ["lint.sh": try mutant(of: "lint", replacing: "#!/bin/bash", with: "#!/bin/sh")])
+        let sut = try makeSUT(overrides: ["lint.sh": mutant(of: "lint", replacing: "#!/bin/bash", with: "#!/bin/sh")])
 
         let result = try sut.run(["check-wrappers"])
 
@@ -229,7 +282,7 @@ final class CheckWrappersEndToEndTests: XCTestCase {
     }
 
     func test_aWrapperThatAsksForTheBashOfThePath_failsTheInterpreterCheck() throws {
-        let sut = try makeSUT(overrides: ["lint.sh": try mutant(of: "lint", replacing: "#!/bin/bash",
+        let sut = try makeSUT(overrides: ["lint.sh": mutant(of: "lint", replacing: "#!/bin/bash",
             with: "#!/usr/bin/env bash")])
 
         let result = try sut.run(["check-wrappers"])
@@ -239,17 +292,48 @@ final class CheckWrappersEndToEndTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func mutant(of stem: String, replacing original: String, with replacement: String) throws -> String {
+    private func makeSUTWith(lint text: String) throws -> SUT {
+        try makeSUT(overrides: ["lint.sh": text])
+    }
+
+    private func mutant(
+        of stem: String,
+        replacing original: String,
+        with replacement: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) -> String {
         let clean = Self.wrapper(for: stem)
         let changed = clean.replacingOccurrences(of: original, with: replacement)
-        XCTAssertNotEqual(changed, clean, "'\(original)' is in the wrapper of \(stem), so the mutant differs from it")
+        XCTAssertNotEqual(changed, clean, "'\(original)' is in the wrapper of \(stem), so the mutant differs from it",
+            file: file, line: line)
         return changed
     }
 
-    private func assertOnlyLintFails(_ result: Captured, message: String, file: StaticString = #filePath, line: UInt = #line) {
+    /// Only `lint.sh` fails. Every line of failure names `lint.sh` and one of the properties: the one in `message` (the text
+    /// up to its first colon) and the `alsoFiring` ones, which a mutant trips by its nature (a wrapper without `exec` also
+    /// fails the exec check). `nil` for `alsoFiring` leaves the properties open, for a mutant that breaks the wrapper whole.
+    private func assertOnlyLintFails(
+        _ result: Captured,
+        message: String,
+        alsoFiring: [String]? = [],
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
         XCTAssertEqual(result.status, 1, "one property does not hold: \(result.standardError)", file: file, line: line)
         XCTAssertTrue(result.standardError.contains("check-wrappers: FAIL \(message)"),
             "the failure says which property: \(result.standardError)", file: file, line: line)
+        let failures = result.standardError.split(separator: "\n").filter { $0.hasPrefix("check-wrappers: FAIL ") }
+        XCTAssertTrue(failures.allSatisfy { $0.hasPrefix("check-wrappers: FAIL lint.sh ") },
+            "no other wrapper fails: \(result.standardError)", file: file, line: line)
+        if let alsoFiring {
+            let allowed = [String(message.split(separator: ":", maxSplits: 1)[0])] + alsoFiring
+            let stray = failures.filter { failure in !allowed.contains { failure.contains($0) } }
+            XCTAssertTrue(stray.isEmpty, "only the property of the mutant fails, not \(stray)", file: file, line: line)
+        }
+        XCTAssertTrue(result.standardOutput.contains("ok   check-lint-contract.sh")
+            && result.standardOutput.contains("ok   check-lint-tool.sh"),
+            "the other wrappers are still checked and pass: \(result.standardOutput)", file: file, line: line)
         XCTAssertFalse(result.standardOutput.contains("ok   lint.sh"), "the mutant has no ok line", file: file, line: line)
         XCTAssertTrue(result.standardOutput.contains("ok   prepare-simulator.sh"),
             "the other wrappers are still checked and pass: \(result.standardOutput)", file: file, line: line)
