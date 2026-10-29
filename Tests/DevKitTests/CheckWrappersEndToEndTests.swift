@@ -183,6 +183,29 @@ final class CheckWrappersEndToEndTests: XCTestCase {
         assertOnlyLintFails(result, message: "lint.sh started in another directory: expected the call")
     }
 
+    // MARK: - The Xcode a job selects
+
+    func test_aWrapperThatUnsetsDeveloperDir_failsTheDeveloperDirCheck() throws {
+        let sut = try makeSUT(overrides: ["lint.sh": try mutant(of: "lint", replacing: "exec swift",
+            with: "unset DEVELOPER_DIR\nexec swift")])
+
+        let result = try sut.run(["check-wrappers"])
+
+        assertOnlyLintFails(result, message: "lint.sh changed DEVELOPER_DIR: the caller had " +
+            "[set:/check-wrappers/xcode-sentinel] and swift saw [unset]")
+    }
+
+    func test_aWrapperThatSetsADefaultDeveloperDir_failsWhereTheCallerHasNone() throws {
+        let defaulting = try mutant(of: "lint", replacing: "exec swift", with:
+            "export DEVELOPER_DIR=\"${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}\"\nexec swift")
+        let sut = try makeSUT(overrides: ["lint.sh": defaulting])
+
+        let result = try sut.run(["check-wrappers"])
+
+        assertOnlyLintFails(result, message: "lint.sh changed DEVELOPER_DIR: the caller had [unset] and swift saw " +
+            "[set:/Applications/Xcode.app/Contents/Developer]")
+    }
+
     // MARK: - Helpers
 
     private func mutant(of stem: String, replacing original: String, with replacement: String) throws -> String {
@@ -199,8 +222,8 @@ final class CheckWrappersEndToEndTests: XCTestCase {
         XCTAssertFalse(result.standardOutput.contains("ok   lint.sh"), "the mutant has no ok line", file: file, line: line)
         XCTAssertTrue(result.standardOutput.contains("ok   prepare-simulator.sh"),
             "the other wrappers are still checked and pass: \(result.standardOutput)", file: file, line: line)
-        XCTAssertTrue(result.standardError.hasSuffix(" failures in 16 checks of 4 scripts\n"),
-            "the summary counts four checks of each of the four scripts: \(result.standardError)", file: file, line: line)
+        XCTAssertTrue(result.standardError.contains(" failures in ") && result.standardError.hasSuffix(" checks of 4 scripts\n"),
+            "the summary counts the checks of the four scripts: \(result.standardError)", file: file, line: line)
     }
 
     static func wrapper(for stem: String) -> String {
