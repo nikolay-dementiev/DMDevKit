@@ -23,6 +23,8 @@
 #    the status. The script that prints a simulator's UDID depends on this.
 # 5. The script ends in an exec: the process that was started is the process of the shim, so a
 #    signal sent to the script reaches devkit.
+# 6. DEVELOPER_DIR, the Xcode a job selects, reaches swift as the caller had it: set to a value, and
+#    not set at all. A wrapper that unsets it, or sets a default of its own, fails.
 #
 # All of it is checked in a scratch repository whose path holds a space, so that a wrapper which
 # does not quote the root it changes to, or the path of its own folder, fails.
@@ -116,6 +118,7 @@ cat > "$WORK/bin/swift" <<'SHIM'
     done
 } >> "$SHIM_LOG"
 printf '%s' "$$" > "$SHIM_PID"
+if [ -n "${DEVELOPER_DIR+x}" ]; then printf 'set:%s' "$DEVELOPER_DIR"; else printf 'unset'; fi > "$SHIM_DEVELOPER_DIR"
 echo "out from the shim"
 echo "err from the shim" >&2
 exit "${SHIM_STATUS:-0}"
@@ -125,18 +128,25 @@ printf '#!/bin/sh\nexit 99\n' > "$WORK/bin/curl"
 chmod 755 "$WORK/bin/swift" "$WORK/bin/xcrun" "$WORK/bin/curl"
 
 STATUS=0
+# The Xcode a job selects for the build. A wrapper must leave it as it found it, set to this value or
+# not set at all; $CALLER_DEVELOPER_DIR is what run() gives the script, "unset" for no value.
+DEVELOPER_DIR_SENTINEL="/check-wrappers/xcode-sentinel"
+CALLER_DEVELOPER_DIR="$DEVELOPER_DIR_SENTINEL"
 # run <path of the script> <directory to start it in> <status the shim ends with> [arguments...]
-# Leaves the record of the shim in $WORK/log, the streams in $WORK/stdout and $WORK/stderr, and
-# the status of the script in $STATUS. A small launcher writes its process id and then execs the
-# script, so that $WORK/launcher.pid can be compared with the id the shim wrote to $WORK/shim.pid.
+# Leaves the record of the shim in $WORK/log, the streams in $WORK/stdout and $WORK/stderr, the
+# DEVELOPER_DIR it saw in $WORK/shim.developer-dir, and the status of the script in $STATUS. A small
+# launcher writes its process id and then execs the script, so that $WORK/launcher.pid can be
+# compared with the id the shim wrote to $WORK/shim.pid.
 run() {
     local script="$1" directory="$2" shim_status="$3"
     shift 3
     : > "$WORK/log"
-    rm -f "$WORK/launcher.pid" "$WORK/shim.pid"
+    rm -f "$WORK/launcher.pid" "$WORK/shim.pid" "$WORK/shim.developer-dir"
     STATUS=0
-    (cd "$directory" && PATH="$WORK/bin:$PATH" SHIM_LOG="$WORK/log" SHIM_PID="$WORK/shim.pid" \
-        SHIM_STATUS="$shim_status" LAUNCHER_PID="$WORK/launcher.pid" \
+    (cd "$directory" &&
+        if [ "$CALLER_DEVELOPER_DIR" = unset ]; then unset DEVELOPER_DIR; else export DEVELOPER_DIR="$CALLER_DEVELOPER_DIR"; fi &&
+        PATH="$WORK/bin:$PATH" SHIM_LOG="$WORK/log" SHIM_PID="$WORK/shim.pid" \
+        SHIM_DEVELOPER_DIR="$WORK/shim.developer-dir" SHIM_STATUS="$shim_status" LAUNCHER_PID="$WORK/launcher.pid" \
         sh -c 'echo $$ > "$LAUNCHER_PID"; exec "$@"' sh "$script" "$@" \
         > "$WORK/stdout" 2> "$WORK/stderr") || STATUS=$?
 }
@@ -199,6 +209,17 @@ for STEM in "${STEMS[@]}"; do
         [ ! -s "$WORK/shim.pid" ]; then
         fail "$STEM.sh did not exec swift: process $(cat "$WORK/launcher.pid" 2> /dev/null) started it and process $(cat "$WORK/shim.pid" 2> /dev/null) ran swift"
     fi
+
+    CHECKS=$((CHECKS + 1))
+    for CALLER_DEVELOPER_DIR in "$DEVELOPER_DIR_SENTINEL" unset; do
+        run "$SCRIPT" "$WORK/elsewhere" 0
+        if [ "$CALLER_DEVELOPER_DIR" = unset ]; then WANTED="unset"; else WANTED="set:$CALLER_DEVELOPER_DIR"; fi
+        SEEN="$(cat "$WORK/shim.developer-dir" 2> /dev/null || true)"
+        if [ "$SEEN" != "$WANTED" ]; then
+            fail "$STEM.sh changed DEVELOPER_DIR: the caller had [$WANTED] and swift saw [$SEEN]"
+        fi
+    done
+    CALLER_DEVELOPER_DIR="$DEVELOPER_DIR_SENTINEL"
 
     if [ "$FAILURES" -eq "$BEFORE" ]; then
         echo "check-wrappers: ok   $STEM.sh forwards its arguments, directory, status and streams"
