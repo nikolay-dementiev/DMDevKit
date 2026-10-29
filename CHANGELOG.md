@@ -5,6 +5,10 @@ All notable changes to DMDevKit are written here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-29
+
+The fourth release. It has the check of the wrapper scripts, so that the three libraries can drop their copies of `check-wrappers.sh`.
+
 ### Added
 
 - The command `check-wrappers [<folder>]`, taken from the three libraries, where one script is kept as three byte-equal copies. It checks the files that the new `devkit.conf` setting `WRAPPERS` lists (an array of file names; not set is status 2). Beyond the five properties of the copies it closes five gaps: the checks run in a scratch repository whose path holds a space (a wrapper that does not quote the root, or its own path, fails), `DEVELOPER_DIR` must reach `swift` as the caller had it, set or not set, standard input must arrive byte for byte, and the first line of a wrapper must be `#!/bin/bash`.
