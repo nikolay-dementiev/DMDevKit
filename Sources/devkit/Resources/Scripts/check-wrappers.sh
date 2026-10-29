@@ -24,6 +24,9 @@
 # 5. The script ends in an exec: the process that was started is the process of the shim, so a
 #    signal sent to the script reaches devkit.
 #
+# All of it is checked in a scratch repository whose path holds a space, so that a wrapper which
+# does not quote the root it changes to, or the path of its own folder, fails.
+#
 # Exit codes: 0 all hold, 1 one does not, 2 wrong usage, a setting that is missing or wrong, or a
 # wrapper missing from the folder.
 
@@ -94,11 +97,12 @@ fail() {  # <message>
     echo "check-wrappers: FAIL $1" >&2
 }
 
-mkdir "$WORK/bin" "$WORK/repo" "$WORK/repo/Scripts" "$WORK/repo/Tools" "$WORK/elsewhere"
+REPO_DIR="$WORK/a repo with spaces"
+mkdir "$WORK/bin" "$REPO_DIR" "$REPO_DIR/Scripts" "$REPO_DIR/Tools" "$WORK/elsewhere"
 for FILE in "${FILES[@]}"; do
-    cp -p "$FOLDER/$FILE" "$WORK/repo/Scripts/$FILE"
+    cp -p "$FOLDER/$FILE" "$REPO_DIR/Scripts/$FILE"
 done
-REPO="$(cd "$WORK/repo" && pwd -P)"
+REPO="$(cd "$REPO_DIR" && pwd -P)"
 
 # The shim writes one record for each call: CALL, the physical working directory and every
 # argument, each ended by a NUL byte, so that an argument with a space or a newline stays one. It
@@ -155,7 +159,7 @@ printf 'err from the shim\n' > "$WORK/expected.err"
 NEWLINE_ARGUMENT=$'two\nlines'
 
 for STEM in "${STEMS[@]}"; do
-    SCRIPT="$WORK/repo/Scripts/$STEM.sh"
+    SCRIPT="$REPO_DIR/Scripts/$STEM.sh"
     BEFORE=$FAILURES
 
     CHECKS=$((CHECKS + 1))
@@ -169,7 +173,7 @@ for STEM in "${STEMS[@]}"; do
     fi
 
     CHECKS=$((CHECKS + 1))
-    run "./$STEM.sh" "$WORK/repo/Scripts" 0
+    run "./$STEM.sh" "$REPO_DIR/Scripts" 0
     expect "$STEM"
     if [ "$STATUS" -ne 0 ] || ! cmp -s "$WORK/log" "$WORK/expected"; then
         fail "$STEM.sh started from its own folder with no argument: expected the call [$(show "$WORK/expected")], got [$(show "$WORK/log")], status $STATUS"
