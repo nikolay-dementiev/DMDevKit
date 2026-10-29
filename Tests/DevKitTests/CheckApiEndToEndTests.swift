@@ -5,7 +5,7 @@ final class CheckApiEndToEndTests: XCTestCase {
     // MARK: - The self-test
 
     /// The `ok` lines of `--self-test`: the cases of the normalizer folder and the scenarios of `--since`. Change it with a case.
-    static let selfTestCaseCount = 97
+    static let selfTestCaseCount = 99
 
     func test_selfTest_runsTheNormalizerCasesOfTheResourcesInARepositoryWithoutFixtures() throws {
         let sut = try makeSUT(conf: nil, files: [:], requiresSdk: false)

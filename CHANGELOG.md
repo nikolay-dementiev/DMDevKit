@@ -5,6 +5,11 @@ All notable changes to DMDevKit are written here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-28
+
+The third release. It has every command that the three libraries still keep as a copy, so that they can move their remaining scripts to it, and it
+runs on Swift 6.4.
+
 ### Added
 
 - The command `check-release` (`<version>`, `--notes <version>`, `--self-test`), taken from DMVariableBlurView. It reads `FROZEN_POD_VERSION` and `MODULE` or `PODSPEC` from `devkit.conf` (`--notes` reads none), and compares the interface with the previous release through `check-api --since`.
@@ -14,6 +19,11 @@ All notable changes to DMDevKit are written here. The format follows
 
 - DMDevKit lints its own sources and tests (`.swiftlint.yml`, CI job `lint`, with the analyzer rules). Long lines were wrapped and the wrapped declarations aligned; `GitRepositoryLocator` now refuses git output that is not UTF-8 (`notInRepository`) instead of decoding it with replacement characters.
 - `devkit` no longer passes `BASH_ENV`, `ENV`, `SHELLOPTS`, `BASHOPTS`, `PS4` or an exported function (`BASH_FUNC_*`) of its own environment to a script. An exported `compgen` could defeat the line with which a script clears the functions it inherits.
+
+### Fixed
+
+- `check-api` reads the module selectors that the interface printer of Swift 6.4 writes (`Swift::UInt`, `Type.Module::member`) as the dotted spelling of the baselines, so an unchanged interface is no longer reported as changed on Swift 6.4. The baselines stay as they are.
+- `devkit lint --analyze` without the path of a log prints `usage: devkit lint --analyze <xcodebuild log>` and exits with status 2, as the usage errors of the other commands do; it used to end with status 1 and a message of bash.
 
 ## [0.2.0] - 2026-10-27
 

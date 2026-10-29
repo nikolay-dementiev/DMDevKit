@@ -1,0 +1,13 @@
+# expect: same
+# The interface printer of Swift 6.4 spells the module of a type with a module selector, `Swift::UInt`, and an inherited member as
+# `Type.Module::member`; the dotted baselines of earlier toolchains are the same interface.
+--- A ---
+public struct First {
+  public func retry(_ retryCount: Swift::UInt) -> any Module::Action
+  public let action: Module::Holder.Module::ActionType
+}
+--- B ---
+public struct First {
+  public func retry(_ retryCount: Swift.UInt) -> any Module.Action
+  public let action: Module.Holder.ActionType
+}

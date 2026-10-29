@@ -23,7 +23,13 @@ fi
 
 # A mistyped option would otherwise lint without the analyzer and still pass.
 case "${1:-}" in
-    "" | --analyze) ;;
+    "") ;;
+    --analyze)
+        if [ -z "${2:-}" ]; then
+            echo "usage: devkit lint --analyze <xcodebuild log>" >&2
+            exit 2
+        fi
+        ;;
     *)
         echo "usage: devkit lint [--analyze <xcodebuild log>]" >&2
         exit 2
@@ -67,7 +73,7 @@ if [ "${1:-}" = "--analyze" ]; then
     # invocations, or one whose file lists left with their DerivedData, gets no file analyzed
     # and SwiftLint still exits 0.
     STATUS=0
-    REPORT="$("$SWIFTLINT" analyze --strict --compiler-log-path "${2:?give the path of an xcodebuild log}" 2>&1)" \
+    REPORT="$("$SWIFTLINT" analyze --strict --compiler-log-path "$2" 2>&1)" \
         || STATUS=$?
     if [ "$STATUS" -ne 0 ]; then
         printf '%s\n' "$REPORT" >&2

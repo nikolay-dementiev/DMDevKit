@@ -1,0 +1,13 @@
+# expect: different
+# Both texts are in the spelling of Swift 6.4 and differ only in the type of the parameter, Swift::UInt against Swift::Int, so a
+# normaliser that dropped the name after a module selector would take them for the same interface.
+--- A ---
+public struct First {
+  public func retry(_ retryCount: Swift::UInt) -> any Module::Action
+  public let action: Module::Holder.Module::ActionType
+}
+--- B ---
+public struct First {
+  public func retry(_ retryCount: Swift::Int) -> any Module::Action
+  public let action: Module::Holder.Module::ActionType
+}
