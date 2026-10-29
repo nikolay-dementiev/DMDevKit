@@ -78,6 +78,11 @@ public struct CommandTable: Sendable, Equatable {
                 "release; --notes <version>, --self-test"
         ),
         Command(
+            name: "check-wrappers",
+            scriptPath: "Scripts/check-wrappers.sh",
+            summary: "Prove that the wrapper scripts WRAPPERS lists in devkit.conf forward to devkit faithfully: [<folder>]"
+        ),
+        Command(
             name: "check-lint-tool",
             scriptPath: "Scripts/check-lint-tool.sh",
             summary: "Prove that the SwiftLint helper stays whole when two runs overlap, with a fake archive and no network"
