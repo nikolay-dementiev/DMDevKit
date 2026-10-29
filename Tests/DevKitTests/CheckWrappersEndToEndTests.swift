@@ -112,6 +112,42 @@ final class CheckWrappersEndToEndTests: XCTestCase {
         }
     }
 
+    func test_aRelativeTMPDIR_stillChecksTheWrappers() throws {
+        let sut = try makeSUT()
+        try FileManager.default.createDirectory(at: sut.repository.appendingPathComponent("relative-tmp"),
+            withIntermediateDirectories: true)
+
+        let result = try sut.run(["check-wrappers"], environment: ["TMPDIR": "relative-tmp"])
+
+        XCTAssertEqual(result.status, 0, "the scratch folder is made absolute before it is used: \(result.standardError)")
+        XCTAssertTrue(result.standardOutput.hasSuffix("the 4 scripts forward to devkit as they should.\n"),
+            "all four were checked: \(result.standardOutput)")
+    }
+
+    func test_aWrapperThatCannotBeCopied_isStatusTwoWithAMessage() throws {
+        let sut = try makeSUT()
+        try FileManager.default.setAttributes([.posixPermissions: 0],
+            ofItemAtPath: sut.repository.appendingPathComponent("Scripts/lint.sh").path)
+
+        let result = try sut.run(["check-wrappers"])
+
+        XCTAssertEqual(result.status, 2, "a check that could not be made is not a check that failed: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("check-wrappers: cannot copy lint.sh into the scratch repository"),
+            "the message names the file: \(result.standardError)")
+    }
+
+    func test_aWrapperThatNeverCallsSwift_failsWithoutAShellError() throws {
+        let sut = try makeSUTWith(lint: "#!/bin/bash\nexit 0\n")
+
+        let result = try sut.run(["check-wrappers"])
+
+        XCTAssertEqual(result.status, 1, "the properties that need the call do not hold: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("lint.sh did not pass standard input to swift: the caller sent 23 bytes"),
+            "the input check says so: \(result.standardError)")
+        XCTAssertFalse(result.standardError.contains("No such file or directory"),
+            "no message of the shell mixes into the report: \(result.standardError)")
+    }
+
     // MARK: - A wrapper that does not forward faithfully, one property at a time
 
     func test_aWrapperThatDoesNotKeepTheArgumentsApart_failsTheForwardingCheck() throws {
@@ -360,8 +396,9 @@ final class CheckWrappersEndToEndTests: XCTestCase {
         let repository: URL
         let devkit: URL
 
-        func run(_ arguments: [String]) throws -> Captured {
-            try fixture.capture(devkit.path, arguments, in: repository)
+        func run(_ arguments: [String], environment: [String: String] = [:]) throws -> Captured {
+            try fixture.capture(devkit.path, arguments, in: repository,
+                environment: EndToEndFixture.cleanEnvironment.merging(environment) { _, added in added })
         }
     }
 
