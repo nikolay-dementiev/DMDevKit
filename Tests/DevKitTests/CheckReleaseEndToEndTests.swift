@@ -5,7 +5,7 @@ final class CheckReleaseEndToEndTests: XCTestCase {
     // MARK: - The self-test
 
     /// The `ok` lines of `--self-test`: the decisions of the script in scratch repositories. Change it with a case.
-    static let selfTestCaseCount = 106
+    static let selfTestCaseCount = 109
 
     func test_selfTest_runsEveryDecisionOfTheScriptInScratchRepositories() throws {
         let sut = try makeSUT(conf: nil, release: nil)

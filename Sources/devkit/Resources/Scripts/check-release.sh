@@ -56,6 +56,10 @@
 # No covering row, or one that says no, is a problem; a file with no row that has a version and a yes or
 # no is exit 2, because the table cannot be read. A repository without SECURITY.md is not asked.
 #
+# A changelog that uses link references ('[1.1.0]: url') has to say the release in them: a '[<version>]:' line,
+# and an '[Unreleased]:' line, when there is one, that compares from the version ('.../compare/<version>...HEAD').
+# A '## [Unreleased]' heading with no such line is a problem too. A changelog without link lines is not asked for any.
+#
 # Exit codes: 0 ready, 1 not ready, 2 wrong usage or the comparison could not run.
 
 set -euo pipefail
@@ -166,7 +170,7 @@ SHIM
         S_PODSPEC="$FROZEN_POD_VERSION" S_OLD="keep" S_NEW="keep" S_TAG="main" S_TAG_BASELINE="yes"
         S_API="real" S_STUB_STATUS="" S_STUB_TEXT="" S_NOTES="no" S_ABSENT="" S_PYTHON="real" S_DIGESTER="none" S_SHALLOW="no" S_GIT="real"
         S_NODATE="no" S_EMPTY="no" S_NOPODSPEC="no" S_TAGS="" S_BELOW="" S_HEADTAG="no" S_ACTIONS="no" S_SIDETAG="" S_NOCHANGELOG="no"
-        S_SECURITY=""
+        S_SECURITY="" S_LINKS=""
     }
     apply() {  # <setting>=<value> ...
         local setting
@@ -201,6 +205,7 @@ SHIM
                 sidetag=*) S_SIDETAG="${setting#sidetag=}" ;;
                 nochangelog=*) S_NOCHANGELOG="${setting#nochangelog=}" ;;
                 security=*) S_SECURITY="${setting#security=}" ;;
+                links=*) S_LINKS="${setting#links=}" ;;
                 *)
                     echo "check-release: self-test: unknown setting '$setting'" >&2
                     exit 2
@@ -283,6 +288,10 @@ SHIM
                 printf '\n## [%s] - 2025-10-11\n\n- earlier\n' "$S_PREVIOUS"
             fi
         } > "$directory/CHANGELOG.md"
+        # The link lines of the case, with the escapes turned into line feeds.
+        if [ -n "$S_LINKS" ]; then
+            printf '\n%b\n' "$S_LINKS" >> "$directory/CHANGELOG.md"
+        fi
         printf "Pod::Spec.new do |s|\n  s.version = '%s'\nend\n" "$S_PODSPEC" > "$directory/$podspec_name"
         printf 'DEVKIT_CONF_VERSION=1\nMODULE="Lib"\nFROZEN_POD_VERSION="%s"\n' "$FROZEN_POD_VERSION" > "$directory/devkit.conf"
         mkdir -p "$directory/Fixtures/API"
@@ -525,6 +534,10 @@ SHIM
     run_case "a SECURITY.md row for the release that says no fails" 1 "SECURITY.md lists 1.2.x as not supported" version=1.2.0 "security=| 1.2.x | no |\n| 1.1.x | yes |"
     run_case "a SECURITY.md row of the form M.x in capitals covers the release" 0 "agrees on 1.1.0" "security=| 1.X | YES |"
     run_case "a SECURITY.md that holds no table is exit 2" 2 "no supported-versions table that check-release can read" "security=# Security policy\n\nWrite to us."
+    # A changelog that uses link references says the release in them.
+    run_case "the link lines of the release and of Unreleased pass" 0 "agrees on 1.1.0" "links=[Unreleased]: https://example.invalid/compare/1.1.0...HEAD\n[1.1.0]: https://example.invalid/compare/1.0.0...1.1.0"
+    run_case "a footer without the line of the release fails" 1 "has no '[1.1.0]:' line" "links=[Unreleased]: https://example.invalid/compare/1.1.0...HEAD\n[1.0.0]: https://example.invalid/tree/1.0.0"
+    run_case "an Unreleased link that compares from an older release fails" 1 "the [Unreleased] link of CHANGELOG.md is" "links=[Unreleased]: https://example.invalid/compare/1.0.0...HEAD\n[1.1.0]: https://example.invalid/compare/1.0.0...1.1.0"
 
     if [ "$total" -eq 0 ]; then
         echo "check-release: self-test: no case ran" >&2
@@ -733,6 +746,40 @@ if [ -f "$SECURITY_FILE" ]; then
         "1 none") PROBLEMS+=("SECURITY.md has no row for $SECURITY_ROW in its supported-versions table (add '| $SECURITY_ROW | yes |')") ;;
         "1 no") PROBLEMS+=("SECURITY.md lists $SECURITY_ROW as not supported") ;;
     esac
+fi
+
+# A changelog that uses link references, lines of the form '[label]: url', has to say the release in them: a
+# '[<version>]:' line, and a '[Unreleased]:' line, when it has one, that compares from this version
+# ('.../compare/<version>...HEAD'). A '## [Unreleased]' heading whose line is missing would render as plain
+# text. A changelog with no link line is not asked for any. Read as bytes, like the headings above.
+if ! LINK_READ="$(LC_ALL=C awk -v version="$VERSION" '
+    BEGIN { links = 0; has_version = 0; heading = 0; unreleased = "-" }
+    /^## \[Unreleased\]/ { heading = 1 }
+    /^\[[^]]+\]:[ \t]+[^ \t]/ {
+        links++
+        label = $0; sub(/^\[/, "", label); sub(/\].*$/, "", label)
+        url = $0; sub(/^\[[^]]+\]:[ \t]+/, "", url); sub(/[ \t].*$/, "", url)
+        if (label == version) has_version = 1
+        if (label == "Unreleased") unreleased = url
+    }
+    END { print links, has_version, heading, unreleased }
+' "$CHANGELOG")"; then
+    report_problems
+    echo "check-release: the link lines of CHANGELOG.md could not be read" >&2
+    exit 2
+fi
+read -r LINK_COUNT LINK_HAS_VERSION LINK_HEADING LINK_UNRELEASED <<< "$LINK_READ"
+if [ "$LINK_COUNT" -gt 0 ]; then
+    if [ "$LINK_HAS_VERSION" -eq 0 ]; then
+        PROBLEMS+=("CHANGELOG.md uses link references and has no '[$VERSION]:' line")
+    fi
+    if [ "$LINK_UNRELEASED" != "-" ]; then
+        if [ "${LINK_UNRELEASED##*/compare/}" != "$VERSION...HEAD" ] || [ "$LINK_UNRELEASED" = "${LINK_UNRELEASED##*/compare/}" ]; then
+            PROBLEMS+=("the [Unreleased] link of CHANGELOG.md is '$LINK_UNRELEASED': it must compare from $VERSION, '.../compare/$VERSION...HEAD'")
+        fi
+    elif [ "$LINK_HEADING" -eq 1 ]; then
+        PROBLEMS+=("CHANGELOG.md has a '## [Unreleased]' heading and no '[Unreleased]:' link line, while it uses link references")
+    fi
 fi
 
 # The release before this one. It has no meaning when the newest heading is for another version,
