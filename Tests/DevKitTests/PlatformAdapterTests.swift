@@ -22,8 +22,8 @@ final class GitRepositoryLocatorTests: XCTestCase {
                 return XCTFail("expected notInRepository, got \(error)")
             }
             XCTAssertEqual(named, directory.path, "the error names the directory")
-            XCTAssertTrue(gitMessage?.contains("not a git repository") == true,
-                "and keeps what git said: \(String(describing: gitMessage))")
+            XCTAssertEqual(gitMessage?.isEmpty, false,
+                "and keeps what git said, whatever language it said it in: \(String(describing: gitMessage))")
         }
     }
 
@@ -73,6 +73,22 @@ final class GitRepositoryLocatorTests: XCTestCase {
                 return XCTFail("expected notInRepository, got \(error)")
             }
             XCTAssertEqual(gitMessage?.count, 300, "a message carries at most 300 characters of git's line")
+        }
+    }
+
+    func test_topLevel_whenGitWritesControlCharacters_theMessageHasNone() throws {
+        let (_, directory) = try makeSUT()
+        let sut = try fakeGit(in: directory, body: "printf 'fatal: \\033[31mred\\033[0m\\tbell\\007 end\\n' >&2\nexit 128\n")
+
+        XCTAssertThrowsError(try sut.topLevel(of: directory), "git refused") { error in
+            guard case DevKitError.notInRepository(_, let gitMessage) = error else {
+                return XCTFail("expected notInRepository, got \(error)")
+            }
+            let hasControl = gitMessage?.unicodeScalars.contains { CharacterSet.controlCharacters.contains($0) }
+            XCTAssertEqual(hasControl, false,
+                "no escape or control character reaches the terminal: \(String(describing: gitMessage))")
+            XCTAssertTrue(gitMessage?.contains("fatal:") == true && gitMessage?.contains("end") == true,
+                "the words stay: \(String(describing: gitMessage))")
         }
     }
 
