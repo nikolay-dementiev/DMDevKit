@@ -5,6 +5,11 @@ All notable changes to DMDevKit are written here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-31
+
+The fifth release. It closes the gaps that the move of the three libraries to 0.4.0 found: the release check reads the records a release has to
+update, the wrapper check finds a script it was not told about, and two messages say what happened.
+
 ### Changed
 
 These make three checks stricter, so a library that pins this version has to fix what they find the next time it runs them: a row of

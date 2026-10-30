@@ -18,7 +18,7 @@ final class DevkitBinaryEndToEndTests: XCTestCase {
         let result = try sut.fixture.capture(sut.devkit.path, ["--version"], in: sut.repository)
 
         XCTAssertEqual(result.status, 0, "--version is not an error")
-        XCTAssertEqual(result.standardOutput, "0.4.0\n", "the version of the release that has check-wrappers")
+        XCTAssertEqual(result.standardOutput, "0.5.0\n", "the version of the release that has the release records")
     }
 
     func test_pathAsCommand_isRejected() throws {

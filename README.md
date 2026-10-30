@@ -48,7 +48,7 @@ paths it needs from `DEVKIT_REPO_ROOT`, `DEVKIT_RESOURCES`, `DEVKIT_CONF` and `D
 
 ## Status
 
-Release 0.4.0 has the commands `prepare-simulator`, `lint`, `check-lint-contract`, `check-lint-tool`, `swiftlint-fetch`, `check-api`, `check-release`,
+Release 0.5.0 has the commands `prepare-simulator`, `lint`, `check-lint-contract`, `check-lint-tool`, `swiftlint-fetch`, `check-api`, `check-release`,
 `export-coverage`, `count-tests` and `check-wrappers`, which is every script that the three libraries still keep as a copy except `coverage-gate.sh`, and it runs on
 Swift 6.4 (0.1.0 did not: it could not find its scripts there; since 0.2.0 it does, and since 0.3.0 `check-api` reads the module selectors that Swift 6.4 prints).
 `coverage-gate.sh` is not a command: the three libraries keep three different versions of it. The CI installs `shellcheck` and `actionlint` from
