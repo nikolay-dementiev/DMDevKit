@@ -407,6 +407,15 @@ final class CheckReleaseEndToEndTests: XCTestCase {
         }
     }
 
+    func test_links_anUnreleasedLinkThatIsOnlyTheRange_isAProblem() throws {
+        let tail = "\n[Unreleased]: 1.2.0...HEAD\n[1.2.0]: \(Self.site)/compare/1.1.0...1.2.0\n"
+        let sut = try makeSUT(release: Release(version: "1.2.0", previous: "1.1.0", changelogTail: tail))
+
+        let result = try sut.run(["1.2.0"])
+
+        XCTAssertEqual(result.status, 1, "a range that is no part of a compare link is not a link to compare")
+    }
+
     func test_links_noUnreleasedLine_isNoProblemWhenThereIsNoUnreleasedHeading() throws {
         let tail = "\n[1.2.0]: \(Self.site)/compare/1.1.0...1.2.0\n[1.1.0]: \(Self.site)/tree/1.1.0\n"
         let sut = try makeSUT(release: Release(version: "1.2.0", previous: "1.1.0", changelogTail: tail))
