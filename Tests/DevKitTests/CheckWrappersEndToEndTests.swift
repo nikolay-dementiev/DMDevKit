@@ -350,6 +350,17 @@ final class CheckWrappersEndToEndTests: XCTestCase {
         XCTAssertTrue(result.standardError.contains("tool.sh runs 'devkit count-tests'"), "named: \(result.standardError)")
     }
 
+    func test_aScriptThatRunsACommandWrittenInPython_isFoundToo() throws {
+        let sut = try makeSUT(listed: ["lint.sh"], present: ["lint.sh", "coverage.sh"],
+            overrides: ["coverage.sh": "#!/bin/bash\nexec swift run --quiet --package-path Tools devkit export-coverage\n"])
+
+        let result = try sut.run(["check-wrappers"])
+
+        XCTAssertEqual(result.status, 1, "export-coverage is a command of devkit although its script is Python")
+        XCTAssertTrue(result.standardError.contains("coverage.sh runs 'devkit export-coverage'"),
+            "named: \(result.standardError)")
+    }
+
     func test_aScriptThatNamesDevkitOnlyInAComment_isNotFlagged() throws {
         let sut = try makeSUT(listed: ["lint.sh"], present: ["lint.sh", "notes.sh"],
             overrides: ["notes.sh": "#!/bin/bash\n# Run devkit lint after this one.\n   # devkit check-api too\necho done\n"])
