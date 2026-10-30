@@ -5,7 +5,7 @@ All notable changes to DMDevKit are written here. The format follows
 
 ## [Unreleased]
 
-## [0.4.0] - 2026-10-29
+## [0.4.0] - 2026-10-30
 
 The fourth release. It has the check of the wrapper scripts, so that the three libraries can drop their copies of `check-wrappers.sh`.
 
