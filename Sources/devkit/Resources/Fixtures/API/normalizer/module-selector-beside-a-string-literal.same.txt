@@ -1,0 +1,10 @@
+# expect: same
+# The selector is still read as the dotted spelling where it is a name, on the same line as a literal that is left alone.
+--- A ---
+public struct First {
+  public func retry(_ count: Swift::UInt = 0, prefix: Swift.String = "a::b")
+}
+--- B ---
+public struct First {
+  public func retry(_ count: Swift.UInt = 0, prefix: Swift.String = "a::b")
+}

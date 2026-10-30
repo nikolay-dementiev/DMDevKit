@@ -1,0 +1,12 @@
+# expect: error
+# message: a string literal does not end on its line
+# A literal that does not end on the line it opens on, such as the start of a multi-line literal, is not text the printer
+# writes on a line that is compared: the check stops instead of guessing where the literal ends.
+--- A ---
+public struct First {
+  public func show(text: Swift.String = "abc
+}
+--- B ---
+public struct First {
+  public func show(text: Swift.String = "abc")
+}

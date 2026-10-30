@@ -1,0 +1,10 @@
+# expect: same
+# An interpolation holds code, so a selector in it is a name and is read as the dotted spelling.
+--- A ---
+public struct First {
+  public func show(text: Swift.String = "n \(Swift::Int.max)")
+}
+--- B ---
+public struct First {
+  public func show(text: Swift.String = "n \(Swift.Int.max)")
+}
