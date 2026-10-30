@@ -1,20 +1,25 @@
 import Foundation
+import os
 
 /// Asks git for the top level of the repository that contains a directory.
 public struct GitRepositoryLocator: RepositoryLocator {
     private let command: [String]
+    private let scratchDirectory: URL
 
-    /// - Parameter command: the program and its leading arguments that run git. The default finds `git` on the `PATH`.
-    public init(command: [String] = ["/usr/bin/env", "git"]) {
+    /// - Parameters:
+    ///   - command: the program and its leading arguments that run git. The default finds `git` on the `PATH`.
+    ///   - scratchDirectory: where the file that holds the standard error of git lives while git runs.
+    public init(command: [String] = ["/usr/bin/env", "git"], scratchDirectory: URL = FileManager.default.temporaryDirectory) {
         self.command = command
+        self.scratchDirectory = scratchDirectory
     }
 
     /// The git top level of `directory`, as the real path git prints.
     ///
     /// The `GIT_*` variables that point git at another repository are removed from the child's environment: the answer is about
     /// `directory`, whatever a hook or a CI step exported.
-    /// - Throws: `DevKitError.notInRepository` when git says there is no repository or prints a path that is not UTF-8,
-    ///   `DevKitError.cannotStart` when git cannot run.
+    /// - Throws: `DevKitError.notInRepository` when git says there is no repository or prints a path that is not UTF-8, with
+    ///   the first line git wrote on its standard error; `DevKitError.cannotStart` when git cannot run.
     public func topLevel(of directory: URL) throws -> URL {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: command[0])
@@ -22,7 +27,11 @@ public struct GitRepositoryLocator: RepositoryLocator {
         process.environment = ProcessInfo.processInfo.environment.filter { !Self.redirectingVariables.contains($0.key) }
         let pipe = Pipe()
         process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
+        // Standard error goes to a file, not a second pipe: two pipes read one after the other can block each other when git
+        // fills the one that is not being read, and a file cannot fill up on git.
+        let errorFile = scratchDirectory.appendingPathComponent("devkit-git-\(UUID().uuidString).err")
+        defer { Self.remove(errorFile) }
+        process.standardError = Self.openForWriting(errorFile) ?? FileHandle.nullDevice
         do {
             try process.run()
         } catch {
@@ -40,9 +49,52 @@ public struct GitRepositoryLocator: RepositoryLocator {
         // Bytes that are no UTF-8 would decode to replacement characters and name a folder that does not exist.
         let path = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard process.terminationStatus == 0, !path.isEmpty else {
-            throw DevKitError.notInRepository(directory: directory.path)
+            throw DevKitError.notInRepository(directory: directory.path, gitMessage: Self.firstLine(ofFile: errorFile))
         }
         return URL(fileURLWithPath: path, isDirectory: true)
+    }
+
+    private static let logger = Logger(subsystem: "DMDevKit", category: "git")
+
+    // Without the file the lookup still runs: the message just has no line of git's.
+    private static func openForWriting(_ file: URL) -> FileHandle? {
+        guard FileManager.default.createFile(atPath: file.path, contents: nil) else {
+            logger.error("cannot create \(file.path, privacy: .public) for the standard error of git")
+            return nil
+        }
+        do {
+            return try FileHandle(forWritingTo: file)
+        } catch {
+            logger.error("cannot open \(file.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+    }
+
+    // The first line that is not blank, cut to a length a message can carry; nil when git wrote nothing or the file is gone.
+    private static func firstLine(ofFile file: URL) -> String? {
+        let data: Data
+        do {
+            data = try Data(contentsOf: file)
+        } catch {
+            logger.error("cannot read \(file.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+        let text = String(decoding: data.prefix(4096), as: UTF8.self)
+        let line = text.split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .first { !$0.isEmpty }
+        return line.map { String($0.prefix(300)) }
+    }
+
+    private static func remove(_ file: URL) {
+        do {
+            try FileManager.default.removeItem(at: file)
+        } catch {
+            // A file that was never made is no error; one that cannot be removed is only a leftover in the temporary folder.
+            if FileManager.default.fileExists(atPath: file.path) {
+                logger.error("cannot remove \(file.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
+        }
     }
 
     private static let redirectingVariables: Set<String> = [

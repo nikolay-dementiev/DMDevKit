@@ -18,7 +18,61 @@ final class GitRepositoryLocatorTests: XCTestCase {
         let (sut, directory) = try makeSUT()
 
         XCTAssertThrowsError(try sut.topLevel(of: directory), "a plain folder has no top level") { error in
-            XCTAssertEqual(error as? DevKitError, .notInRepository(directory: directory.path), "the error names the directory")
+            guard case DevKitError.notInRepository(let named, let gitMessage) = error else {
+                return XCTFail("expected notInRepository, got \(error)")
+            }
+            XCTAssertEqual(named, directory.path, "the error names the directory")
+            XCTAssertTrue(gitMessage?.contains("not a git repository") == true,
+                "and keeps what git said: \(String(describing: gitMessage))")
+        }
+    }
+
+    func test_topLevel_whenGitRefusesWithAReason_keepsTheFirstLineGitWrote() throws {
+        let (_, directory) = try makeSUT()
+        let sut = try fakeGit(in: directory,
+            body: "printf '\\n  \\nfatal: detected dubious ownership\\nhint: second line\\n' >&2\nexit 128\n")
+
+        XCTAssertThrowsError(try sut.topLevel(of: directory), "git refused") { error in
+            XCTAssertEqual(error as? DevKitError,
+                .notInRepository(directory: directory.path, gitMessage: "fatal: detected dubious ownership"),
+                "the first line that is not blank, and only that one")
+        }
+    }
+
+    func test_topLevel_whenGitWritesNothingOnStandardError_hasNoGitMessage() throws {
+        let (_, directory) = try makeSUT()
+        let sut = try fakeGit(in: directory, body: "exit 128\n")
+
+        XCTAssertThrowsError(try sut.topLevel(of: directory), "git refused without a word") { error in
+            XCTAssertEqual(error as? DevKitError, .notInRepository(directory: directory.path, gitMessage: nil),
+                "nothing to quote")
+        }
+    }
+
+    func test_topLevel_afterAnAnswerOrARefusal_leavesNothingInTheScratchFolder() throws {
+        let (_, directory) = try makeSUT()
+        let scratch = directory.appendingPathComponent("scratch", isDirectory: true)
+        try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
+        let refusing = try fakeGit(in: directory, body: "echo 'fatal: no' >&2\nexit 128\n", scratch: scratch)
+        let answering = try fakeGit(in: directory,
+            body: "echo 'noise' >&2\nprintf '%s\\n' '\(directory.path)'\n", scratch: scratch)
+
+        XCTAssertThrowsError(try refusing.topLevel(of: directory), "git refused")
+        _ = try answering.topLevel(of: directory)
+
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: scratch.path), [],
+            "the file that held git's standard error is removed, in both cases")
+    }
+
+    func test_topLevel_whenGitWritesALongLine_cutsTheMessage() throws {
+        let (_, directory) = try makeSUT()
+        let sut = try fakeGit(in: directory, body: "head -c 1000 /dev/zero | tr '\\0' y >&2\nexit 128\n")
+
+        XCTAssertThrowsError(try sut.topLevel(of: directory), "git refused") { error in
+            guard case DevKitError.notInRepository(_, let gitMessage) = error else {
+                return XCTFail("expected notInRepository, got \(error)")
+            }
+            XCTAssertEqual(gitMessage?.count, 300, "a message carries at most 300 characters of git's line")
         }
     }
 
@@ -41,7 +95,8 @@ final class GitRepositoryLocatorTests: XCTestCase {
         let sut = GitRepositoryLocator(command: ["/bin/bash", script.path])
 
         XCTAssertThrowsError(try sut.topLevel(of: directory), "a path that cannot be read is not a path") { error in
-            XCTAssertEqual(error as? DevKitError, .notInRepository(directory: directory.path), "the error names the directory")
+            XCTAssertEqual(error as? DevKitError, .notInRepository(directory: directory.path, gitMessage: nil),
+                "the error names the directory, and git said nothing")
         }
     }
 
@@ -63,6 +118,14 @@ final class GitRepositoryLocatorTests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    /// A locator whose git is a script with the given body, kept in `directory`.
+    private func fakeGit(in directory: URL, body: String, scratch: URL? = nil) throws -> GitRepositoryLocator {
+        let script = directory.appendingPathComponent("fake-git-\(UUID().uuidString).sh")
+        try body.write(to: script, atomically: true, encoding: .utf8)
+        guard let scratch else { return GitRepositoryLocator(command: ["/bin/bash", script.path]) }
+        return GitRepositoryLocator(command: ["/bin/bash", script.path], scratchDirectory: scratch)
+    }
 
     private func makeSUT() throws -> (GitRepositoryLocator, URL) {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("devkit-git-\(UUID().uuidString)",
