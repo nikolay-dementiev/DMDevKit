@@ -336,6 +336,67 @@ LINE_BREAK = re.compile("[\r\x0b\x0c\x85\N{LINE SEPARATOR}\N{PARAGRAPH SEPARATOR
 # the second module name.
 SELECTOR_AFTER_DOT = re.compile(r"\.[A-Za-z_][A-Za-z0-9_]*::")
 SELECTOR = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)::")
+
+def selectors_as_dots(code):
+    return SELECTOR.sub(r"\1.", SELECTOR_AFTER_DOT.sub(".", code))
+
+def outside_literals(line, number):
+    """The line with the selector rewrite applied to its code only. The text of a string literal is left as it is, since
+    a default argument "a::b" is not a name. An interpolation inside a literal is code again, and a literal inside that
+    is scanned in turn. A literal that does not end on its line, as the start of a multi-line literal in a body, stays as
+    it is to the end of the line, and the lines of a body are refused or hidden after this."""
+    def literal_from(start, hashes):
+        opening = "#" * hashes + "\""
+        closing = "\"" + "#" * hashes
+        escape = "\\" + "#" * hashes
+        text, position = opening, start + len(opening)
+        while position < len(line):
+            if line.startswith(closing, position):
+                return text + closing, position + len(closing)
+            if line.startswith(escape + "(", position):
+                inner, position = code_from(position + len(escape) + 1, True)
+                text += escape + "(" + inner
+            elif line.startswith(escape, position):
+                text += line[position:position + len(escape) + 1]
+                position += len(escape) + 1
+            else:
+                text += line[position]
+                position += 1
+        return text, position
+
+    def code_from(position, in_interpolation):
+        pieces, code, depth = [], "", 0
+        while position < len(line):
+            if line.startswith("//", position):
+                code, position = code + line[position:], len(line)
+                break
+            character = line[position]
+            if character == ")" and in_interpolation and depth == 0:
+                pieces.append(selectors_as_dots(code))
+                return "".join(pieces) + ")", position + 1
+            if character == "(":
+                depth += 1
+            elif character == ")" and depth > 0:
+                depth -= 1
+            elif character in ("#", "\""):
+                probe = position
+                while probe < len(line) and line[probe] == "#":
+                    probe += 1
+                if probe < len(line) and line[probe] == "\"":
+                    pieces.append(selectors_as_dots(code))
+                    literal, position = literal_from(position, probe - position)
+                    pieces.append(literal)
+                    code = ""
+                else:
+                    code, position = code + line[position:probe], probe
+                continue
+            code += character
+            position += 1
+        pieces.append(selectors_as_dots(code))
+        return "".join(pieces), position
+
+    return code_from(0, False)[0]
+
 try:
     text = sys.stdin.buffer.read().decode("utf-8")
 except UnicodeDecodeError as error:
@@ -355,7 +416,7 @@ for record in records:
         sys.exit("check-api: line " + number + " holds a line break other than a line feed: U+"
                  + format(ord(found.group()), "04X"))
     if line and not line.startswith(("//", "import ")):
-        line = SELECTOR.sub(r"\1.", SELECTOR_AFTER_DOT.sub(".", line))
+        line = outside_literals(line, number)
         numbered.append((int(number), line))
 
 blocks, current, conditions = [], [], 0

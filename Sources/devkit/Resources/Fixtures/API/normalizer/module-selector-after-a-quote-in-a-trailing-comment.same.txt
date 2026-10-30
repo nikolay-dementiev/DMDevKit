@@ -1,0 +1,10 @@
+# expect: same
+# A comment runs to the end of the line, so a quote in it opens no literal: the selector after it is read as the dotted spelling.
+--- A ---
+public struct First {
+  public func retry(_ count: Swift::UInt) // say "now Swift::UInt
+}
+--- B ---
+public struct First {
+  public func retry(_ count: Swift.UInt) // say "now Swift.UInt
+}

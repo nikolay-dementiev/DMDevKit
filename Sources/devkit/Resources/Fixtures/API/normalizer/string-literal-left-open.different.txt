@@ -1,0 +1,11 @@
+# expect: different
+# A literal that does not end on the line it opens on, such as the start of a multi-line literal, is text to the end of
+# that line: the selector in it is not rewritten, so a change of "a::b" to "a.b" there is a change.
+--- A ---
+public struct First {
+  public func show(text: Swift.String = "abc::d
+}
+--- B ---
+public struct First {
+  public func show(text: Swift.String = "abc.d
+}

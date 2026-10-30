@@ -1,0 +1,10 @@
+# expect: different
+# A quote that is escaped by a backslash does not end the literal, so what follows it is still text.
+--- A ---
+public struct First {
+  public func show(text: Swift.String = "say \"a::b\" now")
+}
+--- B ---
+public struct First {
+  public func show(text: Swift.String = "say \"a.b\" now")
+}
