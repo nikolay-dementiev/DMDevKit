@@ -66,6 +66,41 @@ final class DevkitBinaryEndToEndTests: XCTestCase {
         XCTAssertTrue(result.standardError.contains("is not inside a git repository"), "the message says what is wrong")
     }
 
+    func test_whenGitSaysWhyItFails_theMessageKeepsGitsOwnLine() throws {
+        let sut = try makeSUT()
+        let plain = sut.fixture.directory.appendingPathComponent("plain", isDirectory: true)
+        try FileManager.default.createDirectory(at: plain, withIntermediateDirectories: true)
+        try sut.fixture.writeShim(
+            named: "git",
+            body: "echo \"fatal: detected dubious ownership in repository at '/x'\" >&2\nexit 128\n"
+        )
+
+        let result = try sut.fixture.capture(sut.devkit.path, ["check-release"], in: plain,
+            environment: sut.fixture.shimmedEnvironment())
+
+        XCTAssertEqual(result.status, 64, "the status of a lookup that failed stays the one of a mistake of the caller")
+        XCTAssertTrue(result.standardError.contains("is not inside a git repository"),
+            "the old words stay: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("detected dubious ownership in repository at '/x'"),
+            "and git's own line is there to read: \(result.standardError)")
+    }
+
+    func test_aGitThatWritesAGreatDealToStandardErrorBeforeItAnswers_doesNotHangTheLookup() throws {
+        let sut = try makeSUT()
+        let root = EndToEndFixture.realPath(sut.repository)
+        try sut.fixture.writeShim(
+            named: "git",
+            body: "head -c 204800 /dev/zero | tr '\\0' x >&2\necho >&2\nprintf '%s\\n' '\(root)'\n"
+        )
+
+        let result = try sut.fixture.capture(sut.devkit.path, ["check-release"], in: sut.repository,
+            environment: sut.fixture.shimmedEnvironment(), timeout: 30)
+
+        XCTAssertEqual(result.status, 2, "the lookup ended and the command ran: \(result.standardError.suffix(200))")
+        XCTAssertTrue(result.standardError.contains("usage: devkit check-release"),
+            "check-release answered with its usage line: \(result.standardError.suffix(200))")
+    }
+
     func test_binaryCopiedAwayFromItsResources_reportsTheMissingFolderInsteadOfCrashing() throws {
         let sut = try makeSUT()
         let lonely = sut.fixture.directory.appendingPathComponent("lonely", isDirectory: true)
