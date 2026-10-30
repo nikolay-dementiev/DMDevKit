@@ -5,6 +5,31 @@ All notable changes to DMDevKit are written here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+These make three checks stricter, so a library that pins this version has to fix what they find the next time it runs them: a row of
+`SECURITY.md` for the release, link lines in its changelog if it uses them, and every script that runs devkit in `WRAPPERS`.
+
+- `check-release` reads `SECURITY.md` when the repository has one. Its table of supported versions needs a row for the major and the
+  minor of the release (`| 1.2.x | yes |`; `M.m.x`, `M.m.*`, `M.x` and `M.*` in any letter case), else the release is not ready; a
+  covering row that says `no` is not ready either, and a file with no table of that shape is status 2. A repository without a
+  `SECURITY.md` is not asked. Rows of older lines that still say `yes` are not a problem.
+- `check-release` reads the link lines of the changelog when it has any (`[1.2.0]: <url>`). The line of the release has to be there, and
+  an `[Unreleased]` line, if there is one, has to compare from the release (`.../compare/<version>...HEAD`); a `## [Unreleased]`
+  heading with no such line is a problem too. A changelog without link lines is not asked for any. Both checks run when a library
+  runs `check-release` on its tag, not on its pull requests.
+- `check-wrappers` fails on a `*.sh` file of the folder that `WRAPPERS` does not list and that runs devkit: a line that is not a
+  comment with the word `devkit` and the name of one of its commands. The message names the file. A line that only spells those
+  words, in an `echo` for instance, is taken for a run: list the script, or reword the line.
+- When git cannot find the repository, `devkit` quotes the first line git wrote (the "dubious ownership" refusal, for instance)
+  where it used to say only that the folder is not inside a git repository. The status is still 64.
+
+### Fixed
+
+- `check-api` leaves string literals alone when it reads module selectors. A default argument that changes from `"a::b"` to `"a.b"` is
+  now seen as a change. Interpolations, literals inside them, raw literals and escaped quotes are read; a literal that does not end on
+  its line stays as it is to the end of that line.
+
 ## [0.4.0] - 2026-10-30
 
 The fourth release. It has the check of the wrapper scripts, so that the three libraries can drop their copies of `check-wrappers.sh`.
