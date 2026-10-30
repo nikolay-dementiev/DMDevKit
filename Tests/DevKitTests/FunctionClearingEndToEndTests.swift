@@ -23,7 +23,8 @@ final class FunctionClearingEndToEndTests: XCTestCase {
         Command("check-lint-tool", ["check-lint-tool"], "shasum"),
         Command("swiftlint-fetch", ["swiftlint-fetch", RealSwiftLint.version], "shasum"),
         Command("check-api", ["check-api", "--self-test"], "git"),
-        Command("check-release", ["check-release", "--notes", "1.1.0"], "awk")
+        Command("check-release", ["check-release", "--notes", "1.1.0"], "awk"),
+        Command("check-wrappers", ["check-wrappers"], "cp")
     ]
     private static let clearingLine = "while IFS= read -r FUNCTION; do unset -f \"$FUNCTION\"; done < <(compgen -A function)"
 
@@ -122,8 +123,14 @@ final class FunctionClearingEndToEndTests: XCTestCase {
             atomically: true, encoding: .utf8)
         try LintContractEndToEndTests.config.write(to: repository.appendingPathComponent(".swiftlint.yml"), atomically: true,
             encoding: .utf8)
-        try LintContractEndToEndTests.conf().write(to: repository.appendingPathComponent("devkit.conf"), atomically: true,
-            encoding: .utf8)
+        try LintContractEndToEndTests.conf(extra: "WRAPPERS=(lint.sh)\n")
+            .write(to: repository.appendingPathComponent("devkit.conf"), atomically: true, encoding: .utf8)
+        try FileManager.default.createDirectory(at: repository.appendingPathComponent("Scripts"),
+            withIntermediateDirectories: true)
+        try CheckWrappersEndToEndTests.wrapper(for: "lint")
+            .write(to: repository.appendingPathComponent("Scripts/lint.sh"), atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755],
+            ofItemAtPath: repository.appendingPathComponent("Scripts/lint.sh").path)
         try RealSwiftLint.seed(into: repository)
         let marker = directory.appendingPathComponent("tool.ran")
         // The function records that it ran and then calls the real tool, so a run that does use it still succeeds.

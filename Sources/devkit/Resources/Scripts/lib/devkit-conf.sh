@@ -9,7 +9,7 @@
 #
 #   DEVKIT_CONF_VERSION    must be 1
 #   single values          MODULE SOURCE_DIR RULES FIXTURE_DIR LIBRARY_EVOLUTION PODSPEC FROZEN_POD_VERSION
-#   arrays                 SWIFT_FLAGS DEPENDENCIES PREPARE
+#   arrays                 SWIFT_FLAGS DEPENDENCIES PREPARE WRAPPERS
 #
 # A name the file does not set is unset, an array it does not set is empty, and a value in the
 # environment is never a setting. PODSPEC defaults to $DEVKIT_REPO_ROOT/$MODULE.podspec; a relative
@@ -23,7 +23,7 @@
 # run on what it set.
 
 _DEVKIT_CONF_SCALARS="MODULE SOURCE_DIR RULES FIXTURE_DIR LIBRARY_EVOLUTION PODSPEC FROZEN_POD_VERSION"
-_DEVKIT_CONF_ARRAYS="SWIFT_FLAGS DEPENDENCIES PREPARE"
+_DEVKIT_CONF_ARRAYS="SWIFT_FLAGS DEPENDENCIES PREPARE WRAPPERS"
 # Names of the function below and the shell's own, which a snapshot of the variables can differ in.
 _DEVKIT_CONF_INTERNAL=" conf name before after kind root0 res0 conf0 work0 _ OLDPWD PIPESTATUS LINENO RANDOM SECONDS FUNCNAME "
 

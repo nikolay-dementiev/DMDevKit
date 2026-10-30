@@ -111,16 +111,28 @@ final class CommandTableTests: XCTestCase {
 }
 
 final class StandardCommandTableTests: XCTestCase {
-    func test_standardTable_hasTheNineCommandsOfThisRelease() {
+    func test_standardTable_hasTheTenCommandsOfThisRelease() {
         let names = CommandTable.standard.commands.map(\.name)
 
         XCTAssertEqual(
             Set(names),
             ["prepare-simulator", "lint", "check-lint-contract", "check-lint-tool", "swiftlint-fetch", "check-api",
-                "check-release", "export-coverage", "count-tests"],
+                "check-release", "export-coverage", "count-tests", "check-wrappers"],
             "every command of the README is in the table, and nothing else"
         )
         XCTAssertEqual(names.count, Set(names).count, "no name twice")
+    }
+
+    func test_everyScriptOfTheScriptsFolder_isACommandOfTheTable() throws {
+        let scripts = EndToEndFixture.resourceFolder(for: Self.self).appendingPathComponent("Scripts", isDirectory: true)
+        let files = try FileManager.default.contentsOfDirectory(atPath: scripts.path).filter { $0 != "lib" && !$0.hasPrefix(".") }
+        let paths = Set(CommandTable.standard.commands.map(\.scriptPath))
+
+        for file in files {
+            XCTAssertTrue(paths.contains("Scripts/\(file)"),
+                "'\(file)' is in the bundle but no command runs it; check-wrappers takes a name for a command when a script " +
+                "of that name is in the bundle")
+        }
     }
 
     func test_everyStandardCommand_runsAScriptThatIsInTheResourceFolder() {

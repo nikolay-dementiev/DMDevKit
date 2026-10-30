@@ -30,6 +30,24 @@ final class ConfLoaderTests: XCTestCase {
         )
     }
 
+    func test_wrappers_isAnArrayThatKeepsItsElements_andIsEmptyWhenNotSet() throws {
+        let set = try makeSUT(conf: "DEVKIT_CONF_VERSION=1\nWRAPPERS=(lint.sh \"b c.sh\")\n")
+        let unset = try makeSUT(conf: "DEVKIT_CONF_VERSION=1\n")
+
+        XCTAssertEqual(try set.run("printf '[%s]' \"${WRAPPERS[@]}\"").standardOutput, "[lint.sh][b c.sh]",
+            "WRAPPERS is a setting of schema version 1 and its elements are not split")
+        XCTAssertEqual(try unset.run("echo ${#WRAPPERS[@]}").standardOutput, "0\n", "not set is empty, and safe under set -u")
+    }
+
+    func test_wrappersGivenAScalar_isRejected() throws {
+        let sut = try makeSUT(conf: "DEVKIT_CONF_VERSION=1\nWRAPPERS=lint.sh\n")
+
+        let result = try sut.run("echo loaded")
+
+        XCTAssertEqual(result.status, 2, "WRAPPERS is an array")
+        XCTAssertTrue(result.standardError.contains("WRAPPERS must be an array"), "the message names it: \(result.standardError)")
+    }
+
     func test_unknownName_isRejectedAndNamed() throws {
         let sut = try makeSUT(conf: "DEVKIT_CONF_VERSION=1\nMODULE=Foo\nLIBRARY_DIR=Sources/Foo\n")
 
