@@ -359,6 +359,74 @@ final class CheckReleaseEndToEndTests: XCTestCase {
             "and the SECURITY.md problem in the same run: \(result.standardError)")
     }
 
+    // MARK: - The link lines of the changelog
+
+    private static let site = "https://example.invalid/Lib"
+
+    func test_links_aChangelogWithoutLinkLines_passes() throws {
+        let sut = try makeSUT(release: Release(version: "1.2.0", previous: "1.1.0"))
+
+        let result = try sut.run(["1.2.0"])
+
+        XCTAssertEqual(result.status, 0, "a changelog without link references is not asked for them: \(result.standardError)")
+    }
+
+    func test_links_theLinesOfTheReleaseAndOfUnreleased_pass() throws {
+        let tail = "\n[Unreleased]: \(Self.site)/compare/1.2.0...HEAD\n[1.2.0]: \(Self.site)/compare/1.1.0...1.2.0\n" +
+            "[1.1.0]: \(Self.site)/tree/1.1.0\n"
+        let sut = try makeSUT(release: Release(version: "1.2.0", previous: "1.1.0", changelogTail: tail))
+
+        let result = try sut.run(["1.2.0"])
+
+        XCTAssertEqual(result.status, 0, "the footer says the release: \(result.standardError)")
+    }
+
+    func test_links_aFooterThatStillStopsAtThePreviousRelease_failsOnBothLines() throws {
+        let tail = "\n[Unreleased]: \(Self.site)/compare/1.1.0...HEAD\n[1.1.0]: \(Self.site)/compare/1.0.0...1.1.0\n"
+        let sut = try makeSUT(release: Release(version: "1.2.0", previous: "1.1.0", changelogTail: tail))
+
+        let result = try sut.run(["1.2.0"])
+
+        XCTAssertEqual(result.status, 1, "the footer of a release that was not updated")
+        XCTAssertTrue(result.standardError.contains("has no '[1.2.0]:' line"),
+            "the missing line of the release is named: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("[Unreleased] link"),
+            "and the link of Unreleased that compares from the old release: \(result.standardError)")
+    }
+
+    func test_links_anUnreleasedLinkThatIsNotACompareFromTheRelease_isAProblem() throws {
+        for target in ["compare/1.1.0...HEAD", "compare/1.2.0..HEAD", "compare/1.2.0...main", "tree/1.2.0"] {
+            let tail = "\n[Unreleased]: \(Self.site)/\(target)\n[1.2.0]: \(Self.site)/compare/1.1.0...1.2.0\n"
+            let sut = try makeSUT(release: Release(version: "1.2.0", previous: "1.1.0", changelogTail: tail))
+
+            let result = try sut.run(["1.2.0"])
+
+            XCTAssertEqual(result.status, 1, "'\(target)' is not a compare from 1.2.0 to HEAD")
+            XCTAssertTrue(result.standardError.contains("\(Self.site)/\(target)"),
+                "the link found is quoted: \(result.standardError)")
+        }
+    }
+
+    func test_links_noUnreleasedLine_isNoProblemWhenThereIsNoUnreleasedHeading() throws {
+        let tail = "\n[1.2.0]: \(Self.site)/compare/1.1.0...1.2.0\n[1.1.0]: \(Self.site)/tree/1.1.0\n"
+        let sut = try makeSUT(release: Release(version: "1.2.0", previous: "1.1.0", changelogTail: tail))
+
+        let result = try sut.run(["1.2.0"])
+
+        XCTAssertEqual(result.status, 0, "a changelog with no Unreleased section needs no link for it: \(result.standardError)")
+    }
+
+    func test_links_anUnreleasedHeadingWithoutItsLine_isAProblem() throws {
+        let tail = "\n## [Unreleased]\n\n- later\n\n[1.2.0]: \(Self.site)/compare/1.1.0...1.2.0\n"
+        let sut = try makeSUT(release: Release(version: "1.2.0", previous: "1.1.0", changelogTail: tail))
+
+        let result = try sut.run(["1.2.0"])
+
+        XCTAssertEqual(result.status, 1, "the heading would render as plain text")
+        XCTAssertTrue(result.standardError.contains("no '[Unreleased]:' link line"),
+            "the missing line is named: \(result.standardError)")
+    }
+
     // MARK: - Helpers
 
     enum Baseline {
