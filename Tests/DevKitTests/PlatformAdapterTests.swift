@@ -92,6 +92,18 @@ final class GitRepositoryLocatorTests: XCTestCase {
         }
     }
 
+    func test_topLevel_whenGitWritesBytesThatAreNoUtf8OnStandardError_hasNoGitMessage() throws {
+        let (_, directory) = try makeSUT()
+        let sut = try fakeGit(in: directory, body: "printf 'fatal: \\377\\376 bad\\n' >&2\nexit 128\n")
+
+        XCTAssertThrowsError(try sut.topLevel(of: directory), "git refused") { error in
+            guard case DevKitError.notInRepository(_, let gitMessage) = error else {
+                return XCTFail("expected notInRepository, got \(error)")
+            }
+            XCTAssertNil(gitMessage, "bytes that are no UTF-8 would name text git never wrote, so there is no line")
+        }
+    }
+
     func test_missingGit_isCannotStartNotNotInRepository() throws {
         let (_, directory) = try makeSUT()
         let sut = GitRepositoryLocator(command: ["/usr/bin/env", "devkit-no-such-git-tool"])
