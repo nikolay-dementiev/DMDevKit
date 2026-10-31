@@ -80,7 +80,9 @@ public struct GitRepositoryLocator: RepositoryLocator {
             return nil
         }
         let text = String(decoding: data.prefix(4096), as: UTF8.self)
+        // Control characters (colour escapes, bells) would act on the terminal that prints the message.
         let line = text.split(whereSeparator: \.isNewline)
+            .map { String($0.unicodeScalars.filter { !CharacterSet.controlCharacters.contains($0) }.map(Character.init)) }
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .first { !$0.isEmpty }
         return line.map { String($0.prefix(300)) }
