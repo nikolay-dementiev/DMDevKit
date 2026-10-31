@@ -79,7 +79,11 @@ public struct GitRepositoryLocator: RepositoryLocator {
             logger.error("cannot read \(file.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
             return nil
         }
-        let text = String(decoding: data.prefix(4096), as: UTF8.self)
+        // Bytes that are no UTF-8 would decode to replacement characters, text git never wrote: no line then.
+        guard let text = String(bytes: data, encoding: .utf8) else {
+            logger.error("the standard error of git is not UTF-8")
+            return nil
+        }
         // Control characters (colour escapes, bells) would act on the terminal that prints the message.
         let line = text.split(whereSeparator: \.isNewline)
             .map { String($0.unicodeScalars.filter { !CharacterSet.controlCharacters.contains($0) }.map(Character.init)) }
