@@ -51,6 +51,15 @@
 # status 1 without that line, is a comparison that could not be made and is exit 2.
 # In a repository without that script this does nothing.
 #
+# When the repository has a SECURITY.md, its table of supported versions must cover the release: a row
+# '| 1.2.x | yes |' for the major and the minor of the version (also 1.2.*, 1.x and 1.*, in any letter case).
+# No covering row, or one that says no, is a problem; a file with no row that has a version and a yes or
+# no is exit 2, because the table cannot be read. A repository without SECURITY.md is not asked.
+#
+# A changelog that uses link references ('[1.1.0]: url') has to say the release in them: a '[<version>]:' line,
+# and an '[Unreleased]:' line, when there is one, that compares from the version ('.../compare/<version>...HEAD').
+# A '## [Unreleased]' heading with no such line is a problem too. A changelog without link lines is not asked for any.
+#
 # Exit codes: 0 ready, 1 not ready, 2 wrong usage or the comparison could not run.
 
 set -euo pipefail
@@ -161,6 +170,7 @@ SHIM
         S_PODSPEC="$FROZEN_POD_VERSION" S_OLD="keep" S_NEW="keep" S_TAG="main" S_TAG_BASELINE="yes"
         S_API="real" S_STUB_STATUS="" S_STUB_TEXT="" S_NOTES="no" S_ABSENT="" S_PYTHON="real" S_DIGESTER="none" S_SHALLOW="no" S_GIT="real"
         S_NODATE="no" S_EMPTY="no" S_NOPODSPEC="no" S_TAGS="" S_BELOW="" S_HEADTAG="no" S_ACTIONS="no" S_SIDETAG="" S_NOCHANGELOG="no"
+        S_SECURITY="" S_LINKS=""
     }
     apply() {  # <setting>=<value> ...
         local setting
@@ -194,6 +204,8 @@ SHIM
                 actions=*) S_ACTIONS="${setting#actions=}" ;;
                 sidetag=*) S_SIDETAG="${setting#sidetag=}" ;;
                 nochangelog=*) S_NOCHANGELOG="${setting#nochangelog=}" ;;
+                security=*) S_SECURITY="${setting#security=}" ;;
+                links=*) S_LINKS="${setting#links=}" ;;
                 *)
                     echo "check-release: self-test: unknown setting '$setting'" >&2
                     exit 2
@@ -276,11 +288,20 @@ SHIM
                 printf '\n## [%s] - 2025-10-11\n\n- earlier\n' "$S_PREVIOUS"
             fi
         } > "$directory/CHANGELOG.md"
+        # The link lines of the case, with the escapes turned into line feeds.
+        if [ -n "$S_LINKS" ]; then
+            printf '\n%b\n' "$S_LINKS" >> "$directory/CHANGELOG.md"
+        fi
         printf "Pod::Spec.new do |s|\n  s.version = '%s'\nend\n" "$S_PODSPEC" > "$directory/$podspec_name"
         printf 'DEVKIT_CONF_VERSION=1\nMODULE="Lib"\nFROZEN_POD_VERSION="%s"\n' "$FROZEN_POD_VERSION" > "$directory/devkit.conf"
         mkdir -p "$directory/Fixtures/API"
         baseline_text "$S_NEW" > "$directory/Fixtures/API/public-interface.txt"
         scratch_git "$directory" add -f CHANGELOG.md "$podspec_name" devkit.conf Fixtures/API/public-interface.txt
+        # The supported-versions table of SECURITY.md, with the escapes of the case turned into line feeds.
+        if [ -n "$S_SECURITY" ]; then
+            printf '%b\n' "$S_SECURITY" > "$directory/SECURITY.md"
+            scratch_git "$directory" add SECURITY.md
+        fi
         scratch_git "$directory" commit -q -m "the release"
         # The release job runs on the tag of the release itself.
         if [ "$S_HEADTAG" = "yes" ]; then
@@ -506,6 +527,17 @@ SHIM
     run_case "tags that are no release tags are ignored" 0 "no release below" tags=v1.0.0:keep,1.5.0-rc.1:keep,latest:keep,1.0:keep,1.0.0.1:keep below=none
     run_case "a git that cannot list the tags is exit 2" 2 "could not be listed" git=notags
     run_case "the tags are compared as numbers" 0 "agrees on 1.11.0" version=1.11.0 tags=1.2.0:keep,1.10.0:keep "below=## [1.10.0] - 2025-10-11\n\n- earlier"
+    # The table of supported versions of SECURITY.md covers the release, or the release is not ready.
+    run_case "a SECURITY.md row for the release passes" 0 "agrees on 1.1.0" "security=| Version | Supported |\n|---|---|\n| 1.1.x | yes |\n| earlier | no |"
+    run_case "a SECURITY.md row for the release beside the older one passes" 0 "agrees on 1.2.0" version=1.2.0 "security=| 1.1.x | yes |\n| 1.2.x | yes |"
+    run_case "a SECURITY.md table that stops at the older line fails" 1 "SECURITY.md has no row for 1.2.x" version=1.2.0 "security=| Version | Supported |\n|---|---|\n| 1.1.x | yes |"
+    run_case "a SECURITY.md row for the release that says no fails" 1 "SECURITY.md lists 1.2.x as not supported" version=1.2.0 "security=| 1.2.x | no |\n| 1.1.x | yes |"
+    run_case "a SECURITY.md row of the form M.x in capitals covers the release" 0 "agrees on 1.1.0" "security=| 1.X | YES |"
+    run_case "a SECURITY.md that holds no table is exit 2" 2 "no supported-versions table that check-release can read" "security=# Security policy\n\nWrite to us."
+    # A changelog that uses link references says the release in them.
+    run_case "the link lines of the release and of Unreleased pass" 0 "agrees on 1.1.0" "links=[Unreleased]: https://example.invalid/compare/1.1.0...HEAD\n[1.1.0]: https://example.invalid/compare/1.0.0...1.1.0"
+    run_case "a footer without the line of the release fails" 1 "has no '[1.1.0]:' line" "links=[Unreleased]: https://example.invalid/compare/1.1.0...HEAD\n[1.0.0]: https://example.invalid/tree/1.0.0"
+    run_case "an Unreleased link that compares from an older release fails" 1 "the [Unreleased] link of CHANGELOG.md is" "links=[Unreleased]: https://example.invalid/compare/1.0.0...HEAD\n[1.1.0]: https://example.invalid/compare/1.0.0...1.1.0"
 
     if [ "$total" -eq 0 ]; then
         echo "check-release: self-test: no case ran" >&2
@@ -671,6 +703,83 @@ if [ -n "$HEADING_VERSION" ]; then
     fi
 else
     PROBLEMS+=("CHANGELOG.md has no heading of the form '## [version] - date'")
+fi
+
+# SECURITY.md, when the repository has one, must cover the release in its table of supported versions.
+# A row of the table is '| 1.2.x | yes |': a version cell that opens with a digit and a cell that says yes or no, in
+# any letter case. The cell covers the release when it is M.m.x, M.m.*, M.x or M.* for the major and the minor
+# of the version; a covering row that says no wins over one that says yes. The header, the rule under it
+# and the rows of an older line that still say yes are not a problem. A file with no such row is not a table this
+# script can read, and that is exit 2, never a pass. Read as bytes, so that a locale cannot stop awk on a byte.
+SECURITY_FILE="$ROOT/SECURITY.md"
+if [ -f "$SECURITY_FILE" ]; then
+    SECURITY_LINE="${VERSION%.*}"
+    SECURITY_ROW="$SECURITY_LINE.x"
+    if ! SECURITY_READ="$(LC_ALL=C awk -v major="${VERSION%%.*}" -v minor="${SECURITY_LINE#*.}" '
+        function trim(text) { gsub(/^[ \t]+|[ \t]+$/, "", text); return text }
+        BEGIN { FS = "|"; readable = 0; state = "none" }
+        /^[ \t]*\|/ {
+            version = trim($2); supported = tolower(trim($3))
+            if (version ~ /^[0123456789]/ && (supported == "yes" || supported == "no")) {
+                readable = 1
+                count = split(version, part, ".")
+                last = tolower(part[count])
+                covers = 0
+                if (count == 3 && part[1] == major && part[2] == minor && (last == "x" || last == "*")) covers = 1
+                if (count == 2 && part[1] == major && (last == "x" || last == "*")) covers = 1
+                if (covers && supported == "no") state = "no"
+                else if (covers && state != "no") state = "yes"
+            }
+        }
+        END { print readable, state }
+    ' "$SECURITY_FILE")"; then
+        report_problems
+        echo "check-release: SECURITY.md could not be read" >&2
+        exit 2
+    fi
+    case "$SECURITY_READ" in
+        "0 "*)
+            report_problems
+            echo "check-release: SECURITY.md has no supported-versions table that check-release can read (rows like '| $SECURITY_ROW | yes |')" >&2
+            exit 2
+            ;;
+        "1 none") PROBLEMS+=("SECURITY.md has no row for $SECURITY_ROW in its supported-versions table (add '| $SECURITY_ROW | yes |')") ;;
+        "1 no") PROBLEMS+=("SECURITY.md lists $SECURITY_ROW as not supported") ;;
+    esac
+fi
+
+# A changelog that uses link references, lines of the form '[label]: url', has to say the release in them: a
+# '[<version>]:' line, and a '[Unreleased]:' line, when it has one, that compares from this version
+# ('.../compare/<version>...HEAD'). A '## [Unreleased]' heading whose line is missing would render as plain
+# text. A changelog with no link line is not asked for any. Read as bytes, like the headings above.
+if ! LINK_READ="$(LC_ALL=C awk -v version="$VERSION" '
+    BEGIN { links = 0; has_version = 0; heading = 0; unreleased = "-" }
+    /^## \[Unreleased\]/ { heading = 1 }
+    /^\[[^]]+\]:[ \t]+[^ \t]/ {
+        links++
+        label = $0; sub(/^\[/, "", label); sub(/\].*$/, "", label)
+        url = $0; sub(/^\[[^]]+\]:[ \t]+/, "", url); sub(/[ \t].*$/, "", url)
+        if (label == version) has_version = 1
+        if (label == "Unreleased") unreleased = url
+    }
+    END { print links, has_version, heading, unreleased }
+' "$CHANGELOG")"; then
+    report_problems
+    echo "check-release: the link lines of CHANGELOG.md could not be read" >&2
+    exit 2
+fi
+read -r LINK_COUNT LINK_HAS_VERSION LINK_HEADING LINK_UNRELEASED <<< "$LINK_READ"
+if [ "$LINK_COUNT" -gt 0 ]; then
+    if [ "$LINK_HAS_VERSION" -eq 0 ]; then
+        PROBLEMS+=("CHANGELOG.md uses link references and has no '[$VERSION]:' line")
+    fi
+    if [ "$LINK_UNRELEASED" != "-" ]; then
+        if [ "${LINK_UNRELEASED##*/compare/}" != "$VERSION...HEAD" ] || [ "$LINK_UNRELEASED" = "${LINK_UNRELEASED##*/compare/}" ]; then
+            PROBLEMS+=("the [Unreleased] link of CHANGELOG.md is '$LINK_UNRELEASED': it must compare from $VERSION, '.../compare/$VERSION...HEAD'")
+        fi
+    elif [ "$LINK_HEADING" -eq 1 ]; then
+        PROBLEMS+=("CHANGELOG.md has a '## [Unreleased]' heading and no '[Unreleased]:' link line, while it uses link references")
+    fi
 fi
 
 # The release before this one. It has no meaning when the newest heading is for another version,

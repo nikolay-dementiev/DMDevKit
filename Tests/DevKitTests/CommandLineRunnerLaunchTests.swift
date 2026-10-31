@@ -87,7 +87,7 @@ final class CommandLineRunnerLaunchTests: XCTestCase {
 
     func test_outsideARepository_exitsSixtyFourAndNothingStarts() {
         let (sut, doubles) = makeSUT()
-        doubles.locator.result = .failure(DevKitError.notInRepository(directory: "/repo/sub"))
+        doubles.locator.result = .failure(DevKitError.notInRepository(directory: "/repo/sub", gitMessage: nil))
 
         let status = sut.run(arguments: ["alpha"])
 
@@ -95,6 +95,19 @@ final class CommandLineRunnerLaunchTests: XCTestCase {
         XCTAssertTrue(doubles.output.standardError.contains("/repo/sub is not inside a git repository"),
             "the message names the directory")
         XCTAssertTrue(doubles.launcher.plans.isEmpty, "nothing was started")
+    }
+
+    func test_aRepositoryThatGitRefuses_quotesWhatGitSaid() {
+        let (sut, doubles) = makeSUT()
+        doubles.locator.result = .failure(
+            DevKitError.notInRepository(directory: "/repo/sub", gitMessage: "fatal: detected dubious ownership"))
+
+        let status = sut.run(arguments: ["alpha"])
+
+        XCTAssertEqual(status, 64, "the status is the one of a lookup that failed")
+        let said = "(git said: fatal: detected dubious ownership)"
+        XCTAssertTrue(doubles.output.standardError.contains("/repo/sub is not inside a git repository \(said)"),
+            "the message carries git's line: \(doubles.output.standardError)")
     }
 
     func test_launcherFailure_isReportedAndExitsSeventy() {

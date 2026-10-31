@@ -1,0 +1,11 @@
+# expect: different
+# A module selector that is spelled inside a string literal is text, not a name: the rewrite of the selector leaves the
+# literal alone, so a default that changes from "a::b" to "a.b" is a change of the interface.
+--- A ---
+public struct First {
+  public func retry(prefix: Swift.String = "a::b")
+}
+--- B ---
+public struct First {
+  public func retry(prefix: Swift.String = "a.b")
+}

@@ -1,0 +1,10 @@
+# expect: different
+# A raw literal ends at a quote followed by its hashes: a quote inside it does not end it, and its text is left alone.
+--- A ---
+public struct First {
+  public func show(text: Swift.String = #"say "a::b" now"#, other: Swift::Int = 0)
+}
+--- B ---
+public struct First {
+  public func show(text: Swift.String = #"say "a.b" now"#, other: Swift.Int = 0)
+}

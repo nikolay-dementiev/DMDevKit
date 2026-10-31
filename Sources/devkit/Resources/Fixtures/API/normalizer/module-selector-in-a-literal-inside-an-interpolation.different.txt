@@ -1,0 +1,10 @@
+# expect: different
+# A literal nested in an interpolation of a literal is scanned as a literal of its own: its text is left alone.
+--- A ---
+public struct First {
+  public func show(text: Swift.String = "n \("a::b")")
+}
+--- B ---
+public struct First {
+  public func show(text: Swift.String = "n \("a.b")")
+}

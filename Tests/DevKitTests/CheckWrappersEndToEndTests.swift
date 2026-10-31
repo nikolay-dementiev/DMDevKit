@@ -326,6 +326,91 @@ final class CheckWrappersEndToEndTests: XCTestCase {
         assertOnlyLintFails(result, message: "lint.sh starts with [#!/usr/bin/env bash], not [#!/bin/bash]")
     }
 
+    // MARK: - A script that runs devkit and is not listed
+
+    func test_anUnlistedScriptThatRunsDevkit_failsNamingTheFileAndTheCommand() throws {
+        let sut = try makeSUT(listed: ["lint.sh"], present: ["lint.sh", "check-api.sh"])
+
+        let result = try sut.run(["check-wrappers"])
+
+        XCTAssertEqual(result.status, 1, "a script that forwards to devkit and is not listed is not guarded")
+        XCTAssertTrue(result.standardError.contains("check-api.sh runs 'devkit check-api' and is not in WRAPPERS"),
+            "the file and the command are named: \(result.standardError)")
+        XCTAssertTrue(result.standardOutput.contains("ok   lint.sh"),
+            "the listed wrapper is still checked: \(result.standardOutput)")
+    }
+
+    func test_aScriptThatRunsDevkitByItsBuiltPath_isFoundToo() throws {
+        let sut = try makeSUT(listed: ["lint.sh"], present: ["lint.sh", "tool.sh"],
+            overrides: ["tool.sh": "#!/bin/bash\n\"$ROOT/.build/debug/devkit\" count-tests \"$@\"\n"])
+
+        let result = try sut.run(["check-wrappers"])
+
+        XCTAssertEqual(result.status, 1, "the way devkit is started does not matter")
+        XCTAssertTrue(result.standardError.contains("tool.sh runs 'devkit count-tests'"), "named: \(result.standardError)")
+    }
+
+    func test_aScriptThatRunsACommandWrittenInPython_isFoundToo() throws {
+        let sut = try makeSUT(listed: ["lint.sh"], present: ["lint.sh", "coverage.sh"],
+            overrides: ["coverage.sh": "#!/bin/bash\nexec swift run --quiet --package-path Tools devkit export-coverage\n"])
+
+        let result = try sut.run(["check-wrappers"])
+
+        XCTAssertEqual(result.status, 1, "export-coverage is a command of devkit although its script is Python")
+        XCTAssertTrue(result.standardError.contains("coverage.sh runs 'devkit export-coverage'"),
+            "named: \(result.standardError)")
+    }
+
+    func test_aScriptThatNamesDevkitOnlyInAComment_isNotFlagged() throws {
+        let sut = try makeSUT(listed: ["lint.sh"], present: ["lint.sh", "notes.sh"],
+            overrides: ["notes.sh": "#!/bin/bash\n# Run devkit lint after this one.\n   # devkit check-api too\necho done\n"])
+
+        let result = try sut.run(["check-wrappers"])
+
+        XCTAssertEqual(result.status, 0, "a comment runs nothing: \(result.standardError)")
+    }
+
+    func test_aScriptThatNamesNoCommandOfDevkit_isNotFlagged() throws {
+        let sut = try makeSUT(listed: ["lint.sh"], present: ["lint.sh", "other.sh"],
+            overrides: ["other.sh": "#!/bin/bash\necho \"devkit is shared tooling\"\ndevkit-like-tool lint\nmydevkit lint\n"])
+
+        let result = try sut.run(["check-wrappers"])
+
+        XCTAssertEqual(result.status, 0, "devkit with no command of the bundle after it is no run: \(result.standardError)")
+    }
+
+    func test_aFileThatIsNotAShellScriptOrIsInASubfolder_isNotSearched() throws {
+        let sut = try makeSUT(listed: ["lint.sh"], present: ["lint.sh"])
+        let scripts = sut.repository.appendingPathComponent("Scripts", isDirectory: true)
+        try FileManager.default.createDirectory(at: scripts.appendingPathComponent("lib"), withIntermediateDirectories: true)
+        let text = "devkit lint\n"
+        try text.write(to: scripts.appendingPathComponent("lib/inner.sh"), atomically: true, encoding: .utf8)
+        try text.write(to: scripts.appendingPathComponent("helper.py"), atomically: true, encoding: .utf8)
+        try text.write(to: scripts.appendingPathComponent(".hidden.sh"), atomically: true, encoding: .utf8)
+
+        let result = try sut.run(["check-wrappers"])
+
+        XCTAssertEqual(result.status, 0, "only the *.sh files of the folder itself count: \(result.standardError)")
+    }
+
+    func test_theFolderGivenOnTheCommandLine_isSearchedForUnlistedScripts() throws {
+        let sut = try makeSUT(listed: ["lint.sh"], present: ["lint.sh", "check-api.sh"], folder: "Other")
+
+        let result = try sut.run(["check-wrappers", "Other"])
+
+        XCTAssertEqual(result.status, 1, "the folder that is checked is the folder that is searched")
+        XCTAssertTrue(result.standardError.contains("check-api.sh runs 'devkit check-api'"), "named: \(result.standardError)")
+    }
+
+    func test_everyListedWrapper_isNotAlsoTakenForAnUnlistedOne() throws {
+        let sut = try makeSUT()
+
+        let result = try sut.run(["check-wrappers"])
+
+        XCTAssertEqual(result.status, 0, "the four listed wrappers run devkit and are listed: \(result.standardError)")
+        XCTAssertFalse(result.standardError.contains("is not in WRAPPERS"), "no listed file is reported: \(result.standardError)")
+    }
+
     // MARK: - Helpers
 
     private func makeSUTWith(lint text: String) throws -> SUT {

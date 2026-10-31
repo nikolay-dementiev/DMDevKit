@@ -36,6 +36,10 @@
 # All of it is checked in a scratch repository whose path holds a space, so that a wrapper which
 # does not quote the root it changes to, or the path of its own folder, fails.
 #
+# A *.sh file of the folder that is not listed fails when a line that is not a comment runs devkit: the word
+# devkit, blanks, and the name of one of its commands, such as `devkit lint`. The message names the file.
+# A line that only spells those words, an echo for instance, is taken for a run: list the script, or reword it.
+#
 # Exit codes: 0 all hold, 1 one does not, 2 wrong usage, a setting that is missing or wrong, or a
 # wrapper missing from the folder.
 
@@ -257,6 +261,34 @@ for STEM in "${STEMS[@]}"; do
 
     if [ "$FAILURES" -eq "$BEFORE" ]; then
         echo "check-wrappers: ok   $STEM.sh forwards its arguments, directory, status and streams"
+    fi
+done
+
+# A script of the folder that runs devkit and is not listed is not guarded by any of the checks above. It is
+# found by its text: a line that is not a comment with the word devkit, then blanks, then the name of a command
+# of the bundle, as `swift run ... devkit lint` and `"$ROOT/.build/debug/devkit" count-tests` read. Only the
+# *.sh files of the folder itself are looked at. A line that only spells such words, an echo for instance,
+# is taken for a run: list the script, which then has to forward faithfully, or reword the line.
+COMMAND_NAMES=()
+for COMMAND_FILE in "$DEVKIT_RESOURCES"/Scripts/*.sh "$DEVKIT_RESOURCES"/Scripts/*.py; do
+    [ -f "$COMMAND_FILE" ] || continue
+    COMMAND_NAME="${COMMAND_FILE##*/}"
+    COMMAND_NAMES+=("${COMMAND_NAME%.*}")
+done
+COMMAND_PATTERN="$(IFS='|'; echo "${COMMAND_NAMES[*]}")"
+for SCRIPT_PATH in "$FOLDER"/*.sh; do
+    [ -f "$SCRIPT_PATH" ] || continue
+    SCRIPT_NAME="${SCRIPT_PATH##*/}"
+    LISTED=0
+    for FILE in "${FILES[@]}"; do
+        if [ "$FILE" = "$SCRIPT_NAME" ]; then LISTED=1; fi
+    done
+    [ "$LISTED" -eq 0 ] || continue
+    CHECKS=$((CHECKS + 1))
+    RUNS="$(LC_ALL=C sed -n -E -e '/^[[:space:]]*#/d' \
+        -e "s/^(.*[^[:alnum:]_-])?devkit['\"]?[[:space:]]+($COMMAND_PATTERN)([^[:alnum:]_-].*)?\$/\\2/p" "$SCRIPT_PATH" | sed -n '1p')"
+    if [ -n "$RUNS" ]; then
+        fail "$SCRIPT_NAME runs 'devkit $RUNS' and is not in WRAPPERS: list it in devkit.conf, or stop it from running devkit"
     fi
 done
 

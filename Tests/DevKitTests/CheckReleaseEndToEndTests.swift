@@ -5,7 +5,7 @@ final class CheckReleaseEndToEndTests: XCTestCase {
     // MARK: - The self-test
 
     /// The `ok` lines of `--self-test`: the decisions of the script in scratch repositories. Change it with a case.
-    static let selfTestCaseCount = 100
+    static let selfTestCaseCount = 109
 
     func test_selfTest_runsEveryDecisionOfTheScriptInScratchRepositories() throws {
         let sut = try makeSUT(conf: nil, release: nil)
@@ -274,6 +274,168 @@ final class CheckReleaseEndToEndTests: XCTestCase {
             "the real comparison ran: \(result.standardError)")
     }
 
+    // MARK: - SECURITY.md covers the release
+
+    func test_security_aRowForTheReleaseBesideTheOlderOne_passes() throws {
+        let sut = try makeSUT(release: Release(
+            version: "1.2.0", previous: "1.1.0", security: Self.securityTable("1.1.x | yes", "1.2.x | yes", "earlier | no")))
+
+        let result = try sut.run(["1.2.0"])
+
+        XCTAssertEqual(result.status, 0, "1.2.x is a supported row: \(result.standardError)")
+    }
+
+    func test_security_everyFormOfTheVersionCell_coversTheRelease() throws {
+        for cell in ["1.2.x", "1.2.*", "1.x", "1.*", "1.2.X"] {
+            let sut = try makeSUT(release: Release(
+                version: "1.2.0", previous: "1.1.0", security: Self.securityTable("\(cell) | Yes", "earlier | no")))
+
+            let result = try sut.run(["1.2.0"])
+
+            XCTAssertEqual(result.status, 0, "'\(cell)' covers 1.2.0: \(result.standardError)")
+        }
+    }
+
+    func test_security_aTableWithoutARowForTheRelease_isStatusOneNamingTheRowToAdd() throws {
+        let sut = try makeSUT(release: Release(
+            version: "1.2.0", previous: "1.1.0", security: Self.securityTable("1.1.x | yes", "earlier | no")))
+
+        let result = try sut.run(["1.2.0"])
+
+        XCTAssertEqual(result.status, 1, "1.1.x does not cover 1.2.0")
+        XCTAssertTrue(result.standardError.contains("SECURITY.md has no row for 1.2.x"),
+            "the problem names the line that is missing: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("| 1.2.x | yes |"), "and the row to add: \(result.standardError)")
+    }
+
+    func test_security_aRowForTheReleaseThatSaysNo_isStatusOne() throws {
+        let sut = try makeSUT(release: Release(
+            version: "1.2.0", previous: "1.1.0", security: Self.securityTable("1.2.x | no", "1.1.x | yes")))
+
+        let result = try sut.run(["1.2.0"])
+
+        XCTAssertEqual(result.status, 1, "a covering row that says no is not support")
+        XCTAssertTrue(result.standardError.contains("SECURITY.md lists 1.2.x as not supported"),
+            "the problem says so: \(result.standardError)")
+    }
+
+    func test_security_anOlderRowThatStillSaysYes_isNoProblem() throws {
+        let sut = try makeSUT(release: Release(
+            version: "1.2.0", previous: "1.1.0", security: Self.securityTable("1.2.x | yes", "1.0.x | yes")))
+
+        let result = try sut.run(["1.2.0"])
+
+        XCTAssertEqual(result.status, 0, "the rule is about the release being covered: \(result.standardError)")
+    }
+
+    func test_security_aFileWithoutATable_isStatusTwo() throws {
+        let sut = try makeSUT(release: Release(security: "# Security policy\n\nWrite to us about a vulnerability.\n"))
+
+        let result = try sut.run(["1.1.0"])
+
+        XCTAssertEqual(result.status, 2, "a file that cannot be read is never a pass")
+        XCTAssertTrue(result.standardError.contains("SECURITY.md has no supported-versions table that check-release can read"),
+            "the message says what is missing: \(result.standardError)")
+    }
+
+    func test_security_aTableOfOtherColumns_isStatusTwo() throws {
+        let sut = try makeSUT(release: Release(security: "| Name | Contact |\n|---|---|\n| a | b |\n"))
+
+        let result = try sut.run(["1.1.0"])
+
+        XCTAssertEqual(result.status, 2, "a table with no version and no yes/no cell is not the table that is read")
+    }
+
+    func test_security_aProblemIsListedWithTheOthers() throws {
+        let sut = try makeSUT(release: Release(
+            version: "1.2.0", previous: "1.1.0", podspec: "1.0.9", security: Self.securityTable("1.1.x | yes")))
+
+        let result = try sut.run(["1.2.0"])
+
+        XCTAssertEqual(result.status, 1, "two problems")
+        XCTAssertTrue(result.standardError.contains("the podspec names version '1.0.9'"),
+            "the podspec problem is reported: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("SECURITY.md has no row for 1.2.x"),
+            "and the SECURITY.md problem in the same run: \(result.standardError)")
+    }
+
+    // MARK: - The link lines of the changelog
+
+    private static let site = "https://example.invalid/Lib"
+
+    func test_links_aChangelogWithoutLinkLines_passes() throws {
+        let sut = try makeSUT(release: Release(version: "1.2.0", previous: "1.1.0"))
+
+        let result = try sut.run(["1.2.0"])
+
+        XCTAssertEqual(result.status, 0, "a changelog without link references is not asked for them: \(result.standardError)")
+    }
+
+    func test_links_theLinesOfTheReleaseAndOfUnreleased_pass() throws {
+        let tail = "\n[Unreleased]: \(Self.site)/compare/1.2.0...HEAD\n[1.2.0]: \(Self.site)/compare/1.1.0...1.2.0\n" +
+            "[1.1.0]: \(Self.site)/tree/1.1.0\n"
+        let sut = try makeSUT(release: Release(version: "1.2.0", previous: "1.1.0", changelogTail: tail))
+
+        let result = try sut.run(["1.2.0"])
+
+        XCTAssertEqual(result.status, 0, "the footer says the release: \(result.standardError)")
+    }
+
+    func test_links_aFooterThatStillStopsAtThePreviousRelease_failsOnBothLines() throws {
+        let tail = "\n[Unreleased]: \(Self.site)/compare/1.1.0...HEAD\n[1.1.0]: \(Self.site)/compare/1.0.0...1.1.0\n"
+        let sut = try makeSUT(release: Release(version: "1.2.0", previous: "1.1.0", changelogTail: tail))
+
+        let result = try sut.run(["1.2.0"])
+
+        XCTAssertEqual(result.status, 1, "the footer of a release that was not updated")
+        XCTAssertTrue(result.standardError.contains("has no '[1.2.0]:' line"),
+            "the missing line of the release is named: \(result.standardError)")
+        XCTAssertTrue(result.standardError.contains("[Unreleased] link"),
+            "and the link of Unreleased that compares from the old release: \(result.standardError)")
+    }
+
+    func test_links_anUnreleasedLinkThatIsNotACompareFromTheRelease_isAProblem() throws {
+        for target in ["compare/1.1.0...HEAD", "compare/1.2.0..HEAD", "compare/1.2.0...main", "tree/1.2.0"] {
+            let tail = "\n[Unreleased]: \(Self.site)/\(target)\n[1.2.0]: \(Self.site)/compare/1.1.0...1.2.0\n"
+            let sut = try makeSUT(release: Release(version: "1.2.0", previous: "1.1.0", changelogTail: tail))
+
+            let result = try sut.run(["1.2.0"])
+
+            XCTAssertEqual(result.status, 1, "'\(target)' is not a compare from 1.2.0 to HEAD")
+            XCTAssertTrue(result.standardError.contains("\(Self.site)/\(target)"),
+                "the link found is quoted: \(result.standardError)")
+        }
+    }
+
+    func test_links_anUnreleasedLinkThatIsOnlyTheRange_isAProblem() throws {
+        let tail = "\n[Unreleased]: 1.2.0...HEAD\n[1.2.0]: \(Self.site)/compare/1.1.0...1.2.0\n"
+        let sut = try makeSUT(release: Release(version: "1.2.0", previous: "1.1.0", changelogTail: tail))
+
+        let result = try sut.run(["1.2.0"])
+
+        XCTAssertEqual(result.status, 1, "a range that is no part of a compare link is not a link to compare")
+    }
+
+    func test_links_noUnreleasedLine_isNoProblemWhenThereIsNoUnreleasedHeading() throws {
+        let tail = "\n[1.2.0]: \(Self.site)/compare/1.1.0...1.2.0\n[1.1.0]: \(Self.site)/tree/1.1.0\n"
+        let sut = try makeSUT(release: Release(version: "1.2.0", previous: "1.1.0", changelogTail: tail))
+
+        let result = try sut.run(["1.2.0"])
+
+        XCTAssertEqual(result.status, 0, "a changelog with no Unreleased section needs no link for it: \(result.standardError)")
+    }
+
+    func test_links_anUnreleasedHeadingWithoutItsLine_isAProblem() throws {
+        let tail = "\n## [Unreleased]\n\n- later\n\n[1.2.0]: \(Self.site)/compare/1.1.0...1.2.0\n"
+        let sut = try makeSUT(release: Release(version: "1.2.0", previous: "1.1.0", changelogTail: tail))
+
+        let result = try sut.run(["1.2.0"])
+
+        XCTAssertEqual(result.status, 1, "the heading would render as plain text")
+        XCTAssertTrue(result.standardError.contains("no '[Unreleased]:' link line"),
+            "the missing line is named: \(result.standardError)")
+    }
+
     // MARK: - Helpers
 
     enum Baseline {
@@ -298,6 +460,17 @@ final class CheckReleaseEndToEndTests: XCTestCase {
         var subsection = ""
         var podspec = "1.1.0"
         var podspecName = "Lib.podspec"
+        /// The text of SECURITY.md, or nil for a repository that has none.
+        var security: String?
+        /// Lines appended to CHANGELOG.md after the last section, such as link references.
+        var changelogTail = ""
+    }
+
+    /// A SECURITY.md whose table holds the given rows under the usual header.
+    static func securityTable(_ rows: String...) -> String {
+        "# Security policy\n\n## Supported versions\n\nSecurity fixes are made for the latest release.\n\n" +
+            "| Version | Supported |\n|---|---|\n" + rows.map { "| \($0) |\n" }.joined() +
+            "\n## Reporting a vulnerability\n\nWrite to us.\n"
     }
 
     static func conf(frozen: String = "1.1.0", extra: String = "") -> String {
@@ -362,11 +535,15 @@ final class CheckReleaseEndToEndTests: XCTestCase {
         try sut.write(
             "CHANGELOG.md",
             "## [\(release.version)] - 2026-10-03\n\n\(breaking)- a change\n\n## [\(release.previous)] - 2025-10-11\n\n- " +
-                "earlier\n"
+                "earlier\n" + release.changelogTail
         )
         try sut.write(release.podspecName, "Pod::Spec.new do |s|\n  s.version = '\(release.podspec)'\nend\n")
         try sut.write("Fixtures/API/public-interface.txt", release.baselineNow.text)
         try sut.git(["add", "-f", "CHANGELOG.md", release.podspecName, "Fixtures/API/public-interface.txt"])
+        if let security = release.security {
+            try sut.write("SECURITY.md", security)
+            try sut.git(["add", "SECURITY.md"])
+        }
         try sut.git(["commit", "-q", "-m", "the release"])
         return sut
     }

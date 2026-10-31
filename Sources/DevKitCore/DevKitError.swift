@@ -1,7 +1,8 @@
 /// A failure of `devkit` itself, as opposed to a failure of the script it runs.
 public enum DevKitError: Error, Equatable {
-    /// The working directory is not inside a git repository.
-    case notInRepository(directory: String)
+    /// The working directory is not inside a git repository, or git could not say where it is. `gitMessage` is the first line
+    /// git wrote on its standard error, such as the "dubious ownership" refusal, and nil when it wrote none.
+    case notInRepository(directory: String, gitMessage: String?)
     /// The resource folder that holds the scripts is not there.
     case missingResourceFolder(path: String)
     /// The child could not be started.
@@ -20,8 +21,12 @@ public enum DevKitError: Error, Equatable {
     // One line for the user, without the `devkit:` prefix.
     var message: String {
         switch self {
-        case .notInRepository(let directory):
-            "\(directory) is not inside a git repository"
+        case .notInRepository(let directory, let gitMessage):
+            if let gitMessage {
+                "\(directory) is not inside a git repository (git said: \(gitMessage))"
+            } else {
+                "\(directory) is not inside a git repository"
+            }
         case .missingResourceFolder(let path):
             "the resource folder \(path) is missing"
         case .cannotStart(let executable, let reason):
