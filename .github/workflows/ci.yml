@@ -59,8 +59,12 @@ jobs:
       # DMDevKit itself, so the checksum of its table is checked; it is the one command that puts the archive there.
       - name: Fetch SwiftLint for the tests
         run: swift run -Xswiftc -warnings-as-errors devkit swiftlint-fetch 0.65.1
+      # Most of the time is the end-to-end classes that run the scripts' self-tests in scratch repositories. They share no
+      # path, so the classes run in parallel; the core count is printed to read the saving from the log.
       - name: Test
-        run: swift test -Xswiftc -warnings-as-errors
+        run: |
+          sysctl -n hw.ncpu
+          swift test --parallel -Xswiftc -warnings-as-errors
 
   # DMDevKit lints itself with its own command and the rules in .swiftlint.yml. The analyzer rules read the compiler
   # invocations of a build, so the build that writes the log is the first step of a fresh checkout and compiles everything.
