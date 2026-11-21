@@ -86,32 +86,15 @@ jobs:
         run: swift run devkit lint
       - name: Lint with the analyzer rules
         run: swift run devkit lint --analyze "$RUNNER_TEMP/build.log"
-
-  shellcheck:
-    name: shellcheck
-    runs-on: macos-26
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      # Installed from Homebrew at whatever version it has: the version is printed, not pinned.
+      # The two checks below read files only. They run here, after the lint steps, because a job of their own would take one
+      # of the five macOS slots of the account for a few seconds of work. Homebrew's version is whatever it has: it is
+      # printed, not pinned.
       - name: Install shellcheck
         run: |
           brew install shellcheck
           shellcheck --version
       - name: Check every script
         run: git ls-files -z '*.sh' | xargs -0 shellcheck -x
-
-  actionlint:
-    name: actionlint
-    runs-on: macos-26
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      # Installed from Homebrew at whatever version it has: the version is printed, not pinned.
       - name: Install actionlint
         run: |
           brew install actionlint
