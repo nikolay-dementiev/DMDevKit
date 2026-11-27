@@ -5,6 +5,20 @@ All notable changes to DMDevKit are written here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-27
+
+The sixth release. A repository without a pod can run the release check.
+
+### Added
+
+- The setting `COCOAPODS="none"` of `devkit.conf`: `check-release` runs in a repository without a pod. No podspec is read and no
+  frozen version is checked; every other check runs as before, and the final line names no pod. `FROZEN_POD_VERSION`, `PODSPEC`, a
+  `*.podspec` or `*.podspec.json` in the repository root (a hidden one too), or another value of `COCOAPODS` beside it is status 2.
+
+Without the setting nothing changes: a missing `FROZEN_POD_VERSION` or podspec is still status 2; the message about a missing
+`FROZEN_POD_VERSION` now names the setting. Earlier releases refuse the unknown name in every command that reads `devkit.conf`, so
+add the line in the change that moves the pin to this release.
+
 ## [0.5.0] - 2026-10-31
 
 The fifth release. It closes the gaps that the move of the three libraries to 0.4.0 found: the release check reads the records a release has to
