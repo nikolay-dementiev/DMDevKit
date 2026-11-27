@@ -697,7 +697,8 @@ if [ -n "${COCOAPODS+set}" ]; then
     fi
     # Any name counts: a podspec that no setting names is the one that would go unnoticed.
     for LEFTOVER in "$ROOT"/*.podspec "$ROOT"/*.podspec.json; do
-        if [ -e "$LEFTOVER" ]; then
+        # A link that leads nowhere is still a name in the root, and -e alone does not see it.
+        if [ -e "$LEFTOVER" ] || [ -L "$LEFTOVER" ]; then
             contradiction ", but ${LEFTOVER#"$ROOT"/} is in the repository root: remove the file or the setting"
         fi
     done
