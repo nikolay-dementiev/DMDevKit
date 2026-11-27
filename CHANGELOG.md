@@ -5,6 +5,10 @@ All notable changes to DMDevKit are written here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-27
+
+The sixth release. A repository without a pod can run the release check.
+
 ### Added
 
 - The setting `COCOAPODS="none"` of `devkit.conf`: `check-release` runs in a repository without a pod. No podspec is read and no
