@@ -15,9 +15,9 @@ The sixth release. A repository without a pod can run the release check.
   frozen version is checked; every other check runs as before, and the final line names no pod. `FROZEN_POD_VERSION`, `PODSPEC`, a
   `*.podspec` or `*.podspec.json` in the repository root, or another value of `COCOAPODS` beside it is status 2.
 
-Without the setting nothing changes: a missing `FROZEN_POD_VERSION` or podspec is still status 2, and the message now names the
-setting. Earlier releases refuse the unknown name in every command that reads `devkit.conf`, so add the line in the change that moves
-the pin to this release.
+Without the setting nothing changes: a missing `FROZEN_POD_VERSION` or podspec is still status 2; the message about a missing
+`FROZEN_POD_VERSION` now names the setting. Earlier releases refuse the unknown name in every command that reads `devkit.conf`, so
+add the line in the change that moves the pin to this release.
 
 ## [0.5.0] - 2026-10-31
 
