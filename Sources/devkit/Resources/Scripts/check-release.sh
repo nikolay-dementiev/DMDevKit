@@ -78,7 +78,7 @@ CHANGELOG="$ROOT/CHANGELOG.md"
 # the notes need the changelog alone, and the self-test writes settings of its own.
 
 # Runs the decisions of this script in scratch repositories, and exits. A case builds a repository
-# with a changelog, a podspec, tags and baselines, runs a copy of this script in it, and compares
+# with a changelog, a podspec or none, tags and baselines, runs a copy of this script in it, and compares
 # the exit status and a line of the output with what the case expects. The comparison of the
 # interface is the real Scripts/check-api.sh --since on baselines committed at the tags, which needs
 # git and python3 and no compiler; a stub takes its place only for a status that the real script
@@ -171,6 +171,7 @@ SHIM
         S_API="real" S_STUB_STATUS="" S_STUB_TEXT="" S_NOTES="no" S_ABSENT="" S_PYTHON="real" S_DIGESTER="none" S_SHALLOW="no" S_GIT="real"
         S_NODATE="no" S_EMPTY="no" S_NOPODSPEC="no" S_TAGS="" S_BELOW="" S_HEADTAG="no" S_ACTIONS="no" S_SIDETAG="" S_NOCHANGELOG="no"
         S_SECURITY="" S_LINKS=""
+        S_COCOAPODS="unset" S_FROZEN="yes" S_EXTRA="" S_STRAY=""
     }
     apply() {  # <setting>=<value> ...
         local setting
@@ -206,6 +207,12 @@ SHIM
                 nochangelog=*) S_NOCHANGELOG="${setting#nochangelog=}" ;;
                 security=*) S_SECURITY="${setting#security=}" ;;
                 links=*) S_LINKS="${setting#links=}" ;;
+                # A repository without a pod: it says so, sets no frozen version and holds no podspec.
+                pod=none) S_COCOAPODS="none" S_FROZEN="no" S_NOPODSPEC="yes" ;;
+                cocoapods=*) S_COCOAPODS="${setting#cocoapods=}" ;;
+                frozen=*) S_FROZEN="${setting#frozen=}" ;;
+                extra=*) S_EXTRA="${setting#extra=}" ;;
+                stray=*) S_STRAY="${setting#stray=}" ;;
                 *)
                     echo "check-release: self-test: unknown setting '$setting'" >&2
                     exit 2
@@ -293,7 +300,18 @@ SHIM
             printf '\n%b\n' "$S_LINKS" >> "$directory/CHANGELOG.md"
         fi
         printf "Pod::Spec.new do |s|\n  s.version = '%s'\nend\n" "$S_PODSPEC" > "$directory/$podspec_name"
-        printf 'DEVKIT_CONF_VERSION=1\nMODULE="Lib"\nFROZEN_POD_VERSION="%s"\n' "$FROZEN_POD_VERSION" > "$directory/devkit.conf"
+        {
+            printf 'DEVKIT_CONF_VERSION=1\nMODULE="Lib"\n'
+            if [ "$S_FROZEN" = "yes" ]; then
+                printf 'FROZEN_POD_VERSION="%s"\n' "$FROZEN_POD_VERSION"
+            fi
+            if [ "$S_COCOAPODS" != "unset" ]; then
+                printf 'COCOAPODS="%s"\n' "$S_COCOAPODS"
+            fi
+            if [ -n "$S_EXTRA" ]; then
+                printf '%s\n' "$S_EXTRA"
+            fi
+        } > "$directory/devkit.conf"
         mkdir -p "$directory/Fixtures/API"
         baseline_text "$S_NEW" > "$directory/Fixtures/API/public-interface.txt"
         scratch_git "$directory" add -f CHANGELOG.md "$podspec_name" devkit.conf Fixtures/API/public-interface.txt
@@ -309,6 +327,9 @@ SHIM
         fi
         if [ "$S_NOPODSPEC" = "yes" ]; then
             rm -f "$directory/$podspec_name"
+        fi
+        if [ -n "$S_STRAY" ]; then
+            printf 'left over\n' > "$directory/$S_STRAY"
         fi
         if [ "$S_NOCHANGELOG" = "yes" ]; then
             rm -f "$directory/CHANGELOG.md"
@@ -538,6 +559,19 @@ SHIM
     run_case "the link lines of the release and of Unreleased pass" 0 "agrees on 1.1.0" "links=[Unreleased]: https://example.invalid/compare/1.1.0...HEAD\n[1.1.0]: https://example.invalid/compare/1.0.0...1.1.0"
     run_case "a footer without the line of the release fails" 1 "has no '[1.1.0]:' line" "links=[Unreleased]: https://example.invalid/compare/1.1.0...HEAD\n[1.0.0]: https://example.invalid/tree/1.0.0"
     run_case "an Unreleased link that compares from an older release fails" 1 "the [Unreleased] link of CHANGELOG.md is" "links=[Unreleased]: https://example.invalid/compare/1.0.0...HEAD\n[1.1.0]: https://example.invalid/compare/1.0.0...1.1.0"
+    # A repository without a pod says so in devkit.conf with COCOAPODS="none". Nothing of a pod is checked
+    # then, and everything else is. Silence is not that statement: without it a pod is expected.
+    run_case "a repository without a pod and without a podspec passes" 0 "agrees on 1.1.0, released 2026-10-03." pod=none absent=pod
+    run_case "without a pod a removed line still needs a new major" 1 "needs a new major version" pod=none new=removed
+    run_case "without a pod the SECURITY.md table is still read" 1 "SECURITY.md has no row for 1.1.x" pod=none "security=| 1.0.x | yes |"
+    run_case "no pod declared beside the podspec of the module is exit 2" 2 "Lib.podspec is in the repository root" pod=none nopodspec=no
+    run_case "no pod declared beside a podspec of another name is exit 2" 2 "Other.podspec is in the repository root" pod=none stray=Other.podspec
+    run_case "no pod declared beside a JSON podspec is exit 2" 2 "Lib.podspec.json is in the repository root" pod=none stray=Lib.podspec.json
+    run_case "no pod declared with a frozen version is exit 2" 2 "also sets FROZEN_POD_VERSION" pod=none frozen=yes
+    run_case "no pod declared with a named podspec is exit 2" 2 "also sets PODSPEC" pod=none 'extra=PODSPEC="Lib.podspec"'
+    run_case "a COCOAPODS value other than none is exit 2" 2 'must be "none" or not set' pod=none cocoapods=no
+    run_case "an empty COCOAPODS value is exit 2" 2 'must be "none" or not set' pod=none cocoapods=
+    run_case "a repository with a pod and no frozen version is exit 2" 2 "must set FROZEN_POD_VERSION" frozen=no
 
     if [ "$total" -eq 0 ]; then
         echo "check-release: self-test: no case ran" >&2

@@ -5,7 +5,7 @@ final class CheckReleaseEndToEndTests: XCTestCase {
     // MARK: - The self-test
 
     /// The `ok` lines of `--self-test`: the decisions of the script in scratch repositories. Change it with a case.
-    static let selfTestCaseCount = 109
+    static let selfTestCaseCount = 120
 
     func test_selfTest_runsEveryDecisionOfTheScriptInScratchRepositories() throws {
         let sut = try makeSUT(conf: nil, release: nil)
@@ -222,6 +222,29 @@ final class CheckReleaseEndToEndTests: XCTestCase {
             "the keys are named: \(second.standardError)")
         XCTAssertEqual(third.status, 2, "a check that reads the settings needs the file")
         XCTAssertTrue(third.standardError.contains("devkit.conf"), "the file is named: \(third.standardError)")
+    }
+
+    // MARK: - A repository without a pod
+
+    func test_aRepositoryDeclaredWithoutAPod_passesAndTheSummaryNamesNoPod() throws {
+        let sut = try makeSUT(conf: Self.confWithoutPod)
+        try FileManager.default.removeItem(at: sut.repository.appendingPathComponent("Lib.podspec"))
+
+        let result = try sut.run(["1.1.0"])
+
+        XCTAssertEqual(result.status, 0, "no podspec is asked for: \(result.standardError)")
+        XCTAssertEqual(result.standardOutput, "check-release: the changelog agrees on 1.1.0, released 2026-10-03.\n",
+            "the summary says nothing about a pod")
+    }
+
+    func test_aPodspecLeftInARepositoryDeclaredWithoutAPod_isStatusTwoNamingTheFile() throws {
+        let sut = try makeSUT(conf: Self.confWithoutPod)
+
+        let result = try sut.run(["1.1.0"])
+
+        XCTAssertEqual(result.status, 2, "the setting and the file contradict each other")
+        XCTAssertTrue(result.standardError.contains("Lib.podspec is in the repository root"),
+            "the leftover is named: \(result.standardError)")
     }
 
     // MARK: - The path model
@@ -476,6 +499,8 @@ final class CheckReleaseEndToEndTests: XCTestCase {
     static func conf(frozen: String = "1.1.0", extra: String = "") -> String {
         "DEVKIT_CONF_VERSION=1\nMODULE=\"Lib\"\nFROZEN_POD_VERSION=\"\(frozen)\"\n" + extra
     }
+
+    static let confWithoutPod = "DEVKIT_CONF_VERSION=1\nMODULE=\"Lib\"\nCOCOAPODS=\"none\"\n"
 
     struct SUT {
         let fixture: EndToEndFixture

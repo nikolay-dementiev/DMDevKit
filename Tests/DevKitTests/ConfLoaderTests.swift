@@ -108,6 +108,17 @@ final class ConfLoaderTests: XCTestCase {
             "a relative override is relative to the root")
     }
 
+    func test_cocoapodsNone_leavesThePodspecUnset_andOnlyTheFileSaysIt() throws {
+        let declared = try makeSUT(conf: "DEVKIT_CONF_VERSION=1\nMODULE=Foo\nCOCOAPODS=\"none\"\n")
+        let inherited = try makeSUT(conf: "DEVKIT_CONF_VERSION=1\nMODULE=Foo\n", environment: ["COCOAPODS": "none"])
+        let settings = "echo \"[${COCOAPODS-unset}][${PODSPEC-unset}]\""
+
+        XCTAssertEqual(try declared.run(settings).standardOutput, "[none][unset]\n",
+            "the setting is read, and no podspec is named for a repository without a pod")
+        XCTAssertEqual(try inherited.run(settings).standardOutput, "[unset][\(inherited.root.path)/Foo.podspec]\n",
+            "a value of the environment is not a setting")
+    }
+
     func test_valuesLeftInTheEnvironment_doNotLeakIntoTheSettings() throws {
         let sut = try makeSUT(conf: "DEVKIT_CONF_VERSION=1\n", environment: ["MODULE": "FromTheEnvironment", "SWIFT_FLAGS": "x"])
 
