@@ -15,8 +15,8 @@
 # A pod is frozen: the podspec stays at the last version published to the trunk, FROZEN_POD_VERSION of
 # devkit.conf, whatever the release version is. A repository without a pod says so with
 # COCOAPODS="none" in devkit.conf, and no podspec is read. Setting FROZEN_POD_VERSION or PODSPEC beside
-# it, a *.podspec or *.podspec.json in the repository root (a subfolder is not searched), and any
-# other value of COCOAPODS are exit 2. Without that line a pod is expected, and a missing
+# it, a *.podspec or *.podspec.json in the repository root (a hidden one too; a subfolder is not
+# searched), and any other value of COCOAPODS are exit 2. Without that line a pod is expected, and a missing
 # FROZEN_POD_VERSION or podspec is exit 2.
 #
 # The release is also compared with the one before it. That release comes from the tags: it is the
@@ -700,13 +700,16 @@ if [ -n "${COCOAPODS+set}" ]; then
     if [ -n "${PODSPEC+set}" ]; then
         contradiction " and also sets PODSPEC: a repository without a pod names no podspec"
     fi
-    # Any name counts: a podspec that no setting names is the one that would go unnoticed.
+    # Any name counts: a podspec that no setting names is the one that would go unnoticed. A hidden
+    # name counts too, and a pattern matches one only under dotglob, which is on for this search alone.
+    shopt -s dotglob
     for LEFTOVER in "$ROOT"/*.podspec "$ROOT"/*.podspec.json; do
         # A link that leads nowhere is still a name in the root, and -e alone does not see it.
         if [ -e "$LEFTOVER" ] || [ -L "$LEFTOVER" ]; then
             contradiction ", but ${LEFTOVER#"$ROOT"/} is in the repository root: remove the file or the setting"
         fi
     done
+    shopt -u dotglob
 else
     if [ -z "${FROZEN_POD_VERSION-}" ]; then
         echo "check-release: devkit.conf must set FROZEN_POD_VERSION (or COCOAPODS=\"none\" in a repository without a pod)" >&2
