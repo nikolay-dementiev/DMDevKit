@@ -178,7 +178,7 @@ SHIM
         S_API="real" S_STUB_STATUS="" S_STUB_TEXT="" S_NOTES="no" S_ABSENT="" S_PYTHON="real" S_DIGESTER="none" S_SHALLOW="no" S_GIT="real"
         S_NODATE="no" S_EMPTY="no" S_NOPODSPEC="no" S_TAGS="" S_BELOW="" S_HEADTAG="no" S_ACTIONS="no" S_SIDETAG="" S_NOCHANGELOG="no"
         S_SECURITY="" S_LINKS=""
-        S_COCOAPODS="unset" S_FROZEN="yes" S_EXTRA="" S_STRAY=""
+        S_COCOAPODS="unset" S_FROZEN="yes" S_EXTRA="" S_STRAY="" S_LINK=""
     }
     apply() {  # <setting>=<value> ...
         local setting
@@ -220,6 +220,7 @@ SHIM
                 frozen=*) S_FROZEN="${setting#frozen=}" ;;
                 extra=*) S_EXTRA="${setting#extra=}" ;;
                 stray=*) S_STRAY="${setting#stray=}" ;;
+                link=*) S_LINK="${setting#link=}" ;;
                 *)
                     echo "check-release: self-test: unknown setting '$setting'" >&2
                     exit 2
@@ -336,7 +337,12 @@ SHIM
             rm -f "$directory/$podspec_name"
         fi
         if [ -n "$S_STRAY" ]; then
+            mkdir -p "$(dirname "$directory/$S_STRAY")"
             printf 'left over\n' > "$directory/$S_STRAY"
+        fi
+        # A link in the root to a file that is not there.
+        if [ -n "$S_LINK" ]; then
+            ln -s no-such-file "$directory/$S_LINK"
         fi
         if [ "$S_NOCHANGELOG" = "yes" ]; then
             rm -f "$directory/CHANGELOG.md"
@@ -573,12 +579,17 @@ SHIM
     run_case "without a pod the SECURITY.md table is still read" 1 "SECURITY.md has no row for 1.1.x" pod=none "security=| 1.0.x | yes |"
     run_case "no pod declared beside the podspec of the module is exit 2" 2 "Lib.podspec is in the repository root" pod=none nopodspec=no
     run_case "no pod declared beside a podspec of another name is exit 2" 2 "Other.podspec is in the repository root" pod=none stray=Other.podspec
-    run_case "no pod declared beside a JSON podspec is exit 2" 2 "Lib.podspec.json is in the repository root" pod=none stray=Lib.podspec.json
+    run_case "no pod declared beside a JSON podspec is exit 2" 2 "Other.podspec.json is in the repository root" pod=none stray=Other.podspec.json
+    run_case "no pod declared beside a podspec link that leads nowhere is exit 2" 2 "Other.podspec is in the repository root" pod=none link=Other.podspec
+    run_case "no pod declared with a podspec in a subfolder passes" 0 "agrees on 1.1.0" pod=none stray=Examples/Demo.podspec
     run_case "no pod declared with a frozen version is exit 2" 2 "also sets FROZEN_POD_VERSION" pod=none frozen=yes
     run_case "no pod declared with a named podspec is exit 2" 2 "also sets PODSPEC" pod=none 'extra=PODSPEC="Lib.podspec"'
     run_case "a COCOAPODS value other than none is exit 2" 2 'must be "none" or not set' pod=none cocoapods=no
     run_case "an empty COCOAPODS value is exit 2" 2 'must be "none" or not set' pod=none cocoapods=
+    run_case "no pod declared with an empty frozen version is exit 2" 2 "also sets FROZEN_POD_VERSION" pod=none 'extra=FROZEN_POD_VERSION=""'
+    run_case "no pod declared with an empty podspec name is exit 2" 2 "also sets PODSPEC" pod=none 'extra=PODSPEC=""'
     run_case "a repository with a pod and no frozen version is exit 2" 2 "must set FROZEN_POD_VERSION" frozen=no
+    run_case "silence about the pod is exit 2 even with no podspec" 2 "must set FROZEN_POD_VERSION" frozen=no nopodspec=yes
 
     if [ "$total" -eq 0 ]; then
         echo "check-release: self-test: no case ran" >&2

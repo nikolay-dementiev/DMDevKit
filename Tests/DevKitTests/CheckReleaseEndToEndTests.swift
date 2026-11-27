@@ -5,7 +5,7 @@ final class CheckReleaseEndToEndTests: XCTestCase {
     // MARK: - The self-test
 
     /// The `ok` lines of `--self-test`: the decisions of the script in scratch repositories. Change it with a case.
-    static let selfTestCaseCount = 120
+    static let selfTestCaseCount = 125
 
     func test_selfTest_runsEveryDecisionOfTheScriptInScratchRepositories() throws {
         let sut = try makeSUT(conf: nil, release: nil)
@@ -217,6 +217,8 @@ final class CheckReleaseEndToEndTests: XCTestCase {
 
         XCTAssertEqual(first.status, 2, "FROZEN_POD_VERSION is required")
         XCTAssertTrue(first.standardError.contains("FROZEN_POD_VERSION"), "the key is named: \(first.standardError)")
+        XCTAssertTrue(first.standardError.contains("COCOAPODS=\"none\" in a repository without a pod"),
+            "the way out for a repository without a pod is named: \(first.standardError)")
         XCTAssertEqual(second.status, 2, "without PODSPEC the podspec is named after MODULE")
         XCTAssertTrue(second.standardError.contains("devkit.conf must set MODULE or PODSPEC"),
             "the keys are named: \(second.standardError)")
