@@ -1,6 +1,7 @@
 #!/bin/bash
 #
-# Checks a release version against the changelog, and that the podspec names the frozen version.
+# Checks a release version against the changelog, and, in a repository with a pod, that the podspec
+# names the frozen version.
 #
 #   devkit check-release <version>           check; exit 1 if not ready, 2 if it cannot compare
 #   devkit check-release --notes <version>   print the changelog section of that version
@@ -8,9 +9,15 @@
 #
 # A release starts from a tag that is the version itself, such as 1.1.0. The newest heading of
 # CHANGELOG.md must be `## [1.1.0] - YYYY-MM-DD`, with the date of the release. The release notes
-# are the section under that heading. The pod is frozen: the podspec stays at the last version
-# published to the trunk, FROZEN_POD_VERSION of devkit.conf, whatever the release version is. The release
-# workflow runs this script on the tag; run it before you push one.
+# are the section under that heading. The release workflow runs this script on the tag; run it before
+# you push one.
+#
+# A pod is frozen: the podspec stays at the last version published to the trunk, FROZEN_POD_VERSION of
+# devkit.conf, whatever the release version is. A repository without a pod says so with
+# COCOAPODS="none" in devkit.conf, and no podspec is read. Setting FROZEN_POD_VERSION or PODSPEC beside
+# it, a *.podspec or *.podspec.json in the repository root (a subfolder is not searched), and any
+# other value of COCOAPODS are exit 2. Without that line a pod is expected, and a missing
+# FROZEN_POD_VERSION or podspec is exit 2.
 #
 # The release is also compared with the one before it. That release comes from the tags: it is the
 # highest release tag (three groups of digits) below the version that the commit reaches, and the
@@ -74,8 +81,8 @@ if [ -z "${DEVKIT_REPO_ROOT:-}" ] || [ -z "${DEVKIT_RESOURCES:-}" ] || [ -z "${D
 fi
 ROOT="$DEVKIT_REPO_ROOT"
 CHANGELOG="$ROOT/CHANGELOG.md"
-# PODSPEC and FROZEN_POD_VERSION come from devkit.conf, which is read after --notes and --self-test:
-# the notes need the changelog alone, and the self-test writes settings of its own.
+# PODSPEC, FROZEN_POD_VERSION and COCOAPODS come from devkit.conf, which is read after --notes and
+# --self-test: the notes need the changelog alone, and the self-test writes settings of its own.
 
 # Runs the decisions of this script in scratch repositories, and exits. A case builds a repository
 # with a changelog, a podspec or none, tags and baselines, runs a copy of this script in it, and compares
@@ -650,23 +657,52 @@ if [ "$NOTES" -eq 1 ]; then
     exit 0
 fi
 
-# The settings of the repository: the version the pod is frozen at, and the podspec, which is named
-# after MODULE unless PODSPEC names it. A name that is wrong makes the script read a file that is
-# not there, which is not a release that is not ready.
+# The settings of the repository. With a pod: the version it is frozen at, and the podspec, which is
+# named after MODULE unless PODSPEC names it. A name that is wrong makes the script read a file that is
+# not there, which is not a release that is not ready. Without a pod: COCOAPODS="none", and nothing
+# that speaks of a pod beside it.
 # shellcheck source=SCRIPTDIR/lib/devkit-conf.sh
 . "$DEVKIT_RESOURCES/Scripts/lib/devkit-conf.sh"
 devkit_conf_load || exit $?
-if [ -z "${FROZEN_POD_VERSION-}" ]; then
-    echo "check-release: devkit.conf must set FROZEN_POD_VERSION" >&2
+
+# COCOAPODS="none" and something that speaks of a pod: what to check cannot be told.
+contradiction() {  # <the rest of the sentence>
+    echo "check-release: devkit.conf sets COCOAPODS=\"none\"$1" >&2
     exit 2
-fi
-if [ -z "${PODSPEC-}" ]; then
-    echo "check-release: devkit.conf must set MODULE or PODSPEC, which name the podspec" >&2
-    exit 2
-fi
-if [ ! -f "$PODSPEC" ]; then
-    echo "check-release: the podspec ${PODSPEC#"$ROOT"/} does not exist; PODSPEC in devkit.conf names it" >&2
-    exit 2
+}
+
+HAS_POD=1
+if [ -n "${COCOAPODS+set}" ]; then
+    if [ "$COCOAPODS" != "none" ]; then
+        echo "check-release: COCOAPODS in devkit.conf must be \"none\" or not set (found '$COCOAPODS')" >&2
+        exit 2
+    fi
+    HAS_POD=0
+    if [ -n "${FROZEN_POD_VERSION+set}" ]; then
+        contradiction " and also sets FROZEN_POD_VERSION: a repository without a pod has no frozen version"
+    fi
+    if [ -n "${PODSPEC+set}" ]; then
+        contradiction " and also sets PODSPEC: a repository without a pod names no podspec"
+    fi
+    # Any name counts: a podspec that no setting names is the one that would go unnoticed.
+    for LEFTOVER in "$ROOT"/*.podspec "$ROOT"/*.podspec.json; do
+        if [ -e "$LEFTOVER" ]; then
+            contradiction ", but ${LEFTOVER#"$ROOT"/} is in the repository root: remove the file or the setting"
+        fi
+    done
+else
+    if [ -z "${FROZEN_POD_VERSION-}" ]; then
+        echo "check-release: devkit.conf must set FROZEN_POD_VERSION (or COCOAPODS=\"none\" in a repository without a pod)" >&2
+        exit 2
+    fi
+    if [ -z "${PODSPEC-}" ]; then
+        echo "check-release: devkit.conf must set MODULE or PODSPEC, which name the podspec" >&2
+        exit 2
+    fi
+    if [ ! -f "$PODSPEC" ]; then
+        echo "check-release: the podspec ${PODSPEC#"$ROOT"/} does not exist; PODSPEC in devkit.conf names it" >&2
+        exit 2
+    fi
 fi
 
 PROBLEMS=()
@@ -690,9 +726,11 @@ if [ -z "$(notes)" ]; then
     PROBLEMS+=("CHANGELOG.md has no notes under a heading for $VERSION")
 fi
 
-PODSPEC_VERSION="$(sed -n "s/^ *s\.version *= *'\([^']*\)'.*/\1/p" "$PODSPEC")"
-if [ "$PODSPEC_VERSION" != "$FROZEN_POD_VERSION" ]; then
-    PROBLEMS+=("the podspec names version '$PODSPEC_VERSION'; the pod is frozen at $FROZEN_POD_VERSION")
+if [ "$HAS_POD" -eq 1 ]; then
+    PODSPEC_VERSION="$(sed -n "s/^ *s\.version *= *'\([^']*\)'.*/\1/p" "$PODSPEC")"
+    if [ "$PODSPEC_VERSION" != "$FROZEN_POD_VERSION" ]; then
+        PROBLEMS+=("the podspec names version '$PODSPEC_VERSION'; the pod is frozen at $FROZEN_POD_VERSION")
+    fi
 fi
 
 # Whether a day exists is asked of python3, and a machine without it must say so: a missing
@@ -999,4 +1037,8 @@ if [ "${#PROBLEMS[@]}" -gt 0 ]; then
     fi
     exit 1
 fi
-echo "check-release: the changelog agrees on $VERSION, released $HEADING_DATE; the pod stays at $FROZEN_POD_VERSION."
+POD_CLAUSE=""
+if [ "$HAS_POD" -eq 1 ]; then
+    POD_CLAUSE="; the pod stays at $FROZEN_POD_VERSION"
+fi
+echo "check-release: the changelog agrees on $VERSION, released $HEADING_DATE$POD_CLAUSE."

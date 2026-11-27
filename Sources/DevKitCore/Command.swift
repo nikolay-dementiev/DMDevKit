@@ -74,8 +74,8 @@ public struct CommandTable: Sendable, Equatable {
         Command(
             name: "check-release",
             scriptPath: "Scripts/check-release.sh",
-            summary: "Check a release version against the changelog, the frozen podspec and the interface since the previous " +
-                "release; --notes <version>, --self-test"
+            summary: "Check a release version against the changelog, the frozen podspec (if there is a pod) and the interface " +
+                "since the previous release; --notes <version>, --self-test"
         ),
         Command(
             name: "check-wrappers",

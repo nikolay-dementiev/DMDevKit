@@ -9,10 +9,12 @@
 #
 #   DEVKIT_CONF_VERSION    must be 1
 #   single values          MODULE SOURCE_DIR RULES FIXTURE_DIR LIBRARY_EVOLUTION PODSPEC FROZEN_POD_VERSION
+#                          COCOAPODS
 #   arrays                 SWIFT_FLAGS DEPENDENCIES PREPARE WRAPPERS
 #
 # A name the file does not set is unset, an array it does not set is empty, and a value in the
-# environment is never a setting. PODSPEC defaults to $DEVKIT_REPO_ROOT/$MODULE.podspec; a relative
+# environment is never a setting. PODSPEC defaults to $DEVKIT_REPO_ROOT/$MODULE.podspec, except with
+# COCOAPODS="none", which says that the repository has no pod (check-release reads it); a relative
 # PODSPEC is relative to $DEVKIT_REPO_ROOT. Status 2 and a line on standard error when the file is
 # missing, has no DEVKIT_CONF_VERSION=1, sets another name, sets a name with the wrong kind, or
 # changes one of the four DEVKIT_* paths that devkit gave.
@@ -22,7 +24,7 @@
 # file that fails does not stop the load (errexit is off while it is sourced); the checks above still
 # run on what it set.
 
-_DEVKIT_CONF_SCALARS="MODULE SOURCE_DIR RULES FIXTURE_DIR LIBRARY_EVOLUTION PODSPEC FROZEN_POD_VERSION"
+_DEVKIT_CONF_SCALARS="MODULE SOURCE_DIR RULES FIXTURE_DIR LIBRARY_EVOLUTION PODSPEC FROZEN_POD_VERSION COCOAPODS"
 _DEVKIT_CONF_ARRAYS="SWIFT_FLAGS DEPENDENCIES PREPARE WRAPPERS"
 # Names of the function below and the shell's own, which a snapshot of the variables can differ in.
 _DEVKIT_CONF_INTERNAL=" conf name before after kind root0 res0 conf0 work0 _ OLDPWD PIPESTATUS LINENO RANDOM SECONDS FUNCNAME "
@@ -97,6 +99,8 @@ devkit_conf_load() {
 _devkit_conf_resolve_podspec() {
     if [ -z "${PODSPEC-}" ]; then
         [ -n "${MODULE-}" ] || return 0
+        # A repository without a pod names no podspec, and none is made up from MODULE.
+        [ "${COCOAPODS-}" != "none" ] || return 0
     fi
     case "${PODSPEC-}" in
         /*) return 0 ;;
