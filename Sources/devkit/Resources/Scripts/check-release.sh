@@ -582,6 +582,11 @@ SHIM
     run_case "no pod declared beside a JSON podspec is exit 2" 2 "Other.podspec.json is in the repository root" pod=none stray=Other.podspec.json
     run_case "no pod declared beside a podspec link that leads nowhere is exit 2" 2 "Other.podspec is in the repository root" pod=none link=Other.podspec
     run_case "no pod declared with a podspec in a subfolder passes" 0 "agrees on 1.1.0" pod=none stray=Examples/Demo.podspec
+    run_case "no pod declared beside a hidden podspec is exit 2" 2 ".Hidden.podspec is in the repository root" pod=none stray=.Hidden.podspec
+    run_case "no pod declared beside a hidden JSON podspec is exit 2" 2 ".Hidden.podspec.json is in the repository root" pod=none stray=.Hidden.podspec.json
+    run_case "no pod declared beside a hidden podspec link that leads nowhere is exit 2" 2 ".Hidden.podspec is in the repository root" pod=none link=.Hidden.podspec
+    run_case "no pod declared beside a file named only .podspec is exit 2" 2 ".podspec is in the repository root" pod=none stray=.podspec
+    run_case "no pod declared with a hidden podspec in a subfolder passes" 0 "agrees on 1.1.0" pod=none stray=Examples/.Demo.podspec
     run_case "no pod declared with a frozen version is exit 2" 2 "also sets FROZEN_POD_VERSION" pod=none frozen=yes
     run_case "no pod declared with a named podspec is exit 2" 2 "also sets PODSPEC" pod=none 'extra=PODSPEC="Lib.podspec"'
     run_case "a COCOAPODS value other than none is exit 2" 2 'must be "none" or not set' pod=none cocoapods=no
